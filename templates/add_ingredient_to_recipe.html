@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Add Ingredient to {{ recipe_name }} - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-plus-circle"></i> Add Ingredient to "{{ recipe_name }}"
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="/recipe/{{ recipe_name }}/add_ingredient">
+                    <div class="mb-3">
+                        <label for="ingredient_search" class="form-label">Search Ingredient or Preparation *</label>
+                        <input type="text" class="form-control" id="ingredient_search"
+                               placeholder="Type ingredient or preparation name..." autocomplete="off">
+                        <input type="hidden" id="ingredient_name" name="ingredient_name" required>
+                        <div id="ingredient_suggestions" class="list-group mt-2 d-none"></div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="quantity" class="form-label">Quantity *</label>
+                            <input type="number" class="form-control" id="quantity" name="quantity"
+                                   min="0" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="unit" class="form-label">Unit *</label>
+                            <select class="form-select" id="unit" name="unit" required>
+                                <option value="">Select unit...</option>
+                                <option value="C">Cup (C)</option>
+                                <option value="T">Tablespoon (T)</option>
+                                <option value="t">Teaspoon (t)</option>
+                                <option value="lb">Pound (lb)</option>
+                                <option value="oz">Ounce (oz)</option>
+                                <option value="ea">Each (ea)</option>
+                                <option value="clove">Clove</option>
+                                <option value="slice">Slice</option>
+                                <option value="can">Can</option>
+                                <option value="bunch">Bunch</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Tip:</strong> You can add both ingredients and other preparations (sub-recipes) to a recipe.
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="/recipe/{{ recipe_name }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Recipe
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check"></i> Add Ingredient
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedIngredient = null;
+
+document.getElementById('ingredient_search').addEventListener('input', function() {
+    const query = this.value.trim();
+
+    if (query.length < 2) {
+        document.getElementById('ingredient_suggestions').classList.add('d-none');
+        return;
+    }
+
+    fetch(`/api/search_ingredients?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(ingredients => {
+            const suggestionsDiv = document.getElementById('ingredient_suggestions');
+
+            if (ingredients.length === 0) {
+                suggestionsDiv.innerHTML = '<div class="list-group-item text-muted">No ingredients or preparations found</div>';
+            } else {
+                suggestionsDiv.innerHTML = ingredients.map(ing => {
+                    const isRecipe = ing.type === 'recipe';
+                    const icon = isRecipe ? '📋' : '🥫';
+                    const typeLabel = isRecipe ? 'Preparation' : ing.category;
+                    const priceInfo = isRecipe ? '' : `$${ing.unit_price.toFixed(2)}/${ing.recipe_unit}`;
+
+                    return `<button type="button" class="list-group-item list-group-item-action"
+                             onclick="selectIngredient('${ing.name}', '${ing.recipe_unit}')">
+                        <div class="d-flex justify-content-between">
+                            <span>${icon} ${ing.name}</span>
+                            <small class="text-muted">${typeLabel}${priceInfo ? ' - ' + priceInfo : ''}</small>
+                        </div>
+                        <small class="text-muted">Unit: ${ing.recipe_unit}</small>
+                    </button>`;
+                }).join('');
+            }
+
+            suggestionsDiv.classList.remove('d-none');
+        })
+        .catch(error => {
+            console.error('Error fetching ingredients:', error);
+        });
+});
+
+function selectIngredient(name, baseUnit) {
+    selectedIngredient = { name, baseUnit };
+    document.getElementById('ingredient_search').value = name;
+    document.getElementById('ingredient_name').value = name;
+    document.getElementById('ingredient_suggestions').classList.add('d-none');
+
+    // Set the unit to the base unit for convenience
+    document.getElementById('unit').value = baseUnit;
+
+    // Focus on quantity field
+    document.getElementById('quantity').focus();
+}
+
+// Hide suggestions when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#ingredient_search') && !e.target.closest('#ingredient_suggestions')) {
+        document.getElementById('ingredient_suggestions').classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}

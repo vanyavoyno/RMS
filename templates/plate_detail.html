@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plate.name }} - Menu Plates{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="display-6 mb-2">{{ plate.name }}</h1>
+                <p class="text-muted">{{ plate.description }}</p>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-primary fs-6">{{ plate.category }}</span>
+                {% if allergens %}
+                <br><div class="mt-2">
+                    <strong class="d-block mb-1" style="font-size: 0.9em;">⚠️ Contains Allergens:</strong>
+                    {% for allergen in allergens %}
+                    <span class="badge bg-danger me-1 mb-1" title="{{ allergen.description }}">
+                        {{ allergen.icon }} {{ allergen.name }}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Plate Cost Information -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-calculator"></i> Cost Analysis</h5>
+            </div>
+            <div class="card-body">
+                {% if cost_data %}
+                <div class="cost-highlight text-center mb-3">
+                    <h3 class="text-success">${{ "%.2f"|format(cost_data.total_cost) }}</h3>
+                    <small class="text-muted">Total Plate Cost</small>
+                </div>
+
+                <div class="cost-breakdown">
+                    <div class="d-flex justify-content-between">
+                        <span>Recipe Cost:</span>
+                        <strong>${{ "%.2f"|format(cost_data.recipe_cost) }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Direct Ingredient Cost:</span>
+                        <strong>${{ "%.2f"|format(cost_data.ingredient_cost) }}</strong>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span>Subtotal:</span>
+                        <strong>${{ "%.2f"|format(cost_data.subtotal) }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Q-Factor:</span>
+                        <div class="input-group input-group-sm" style="max-width: 120px;">
+                            <input type="number" class="form-control form-control-sm" id="q_factor_input"
+                                   value="{{ (cost_data.q_factor * 100)|round(1) }}"
+                                   min="0" max="100" step="0.1">
+                            <span class="input-group-text">%</span>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span></span>
+                        <strong>${{ "%.2f"|format(cost_data.q_factor_cost) }}</strong>
+                    </div>
+                    <div class="text-end mt-2">
+                        <button class="btn btn-sm btn-primary" onclick="updateQFactor()">
+                            <i class="bi bi-check"></i> Update Q-Factor
+                        </button>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span><strong>Total Cost:</strong></span>
+                        <strong>${{ "%.2f"|format(cost_data.total_cost) }}</strong>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Unable to calculate cost. Check ingredient availability.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6><i class="bi bi-lightning"></i> Quick Actions</h6>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('add_ingredient_to_plate', plate_name=plate.name) }}"
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-plus"></i> Add Component
+                    </a>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="printPlate()">
+                        <i class="bi bi-printer"></i> Print Recipe Card
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plate Components -->
+    <div class="col-lg-8 mb-4">
+        <!-- Recipes in this plate -->
+        {% if plate_recipes %}
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-book"></i> Recipes</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Preparation</th>
+                                <th>Quantity</th>
+                                <th>Unit</th>
+                                <th>Cost</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for recipe in plate_recipes %}
+                            <tr>
+                                <td>
+                                    <strong>{{ recipe.name }}</strong>
+                                    <a href="{{ url_for('recipe_detail', recipe_name=recipe.name) }}"
+                                       class="btn btn-sm btn-outline-primary ms-2">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                </td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('update_plate_recipe', plate_name=plate.name, recipe_name=recipe.name) }}" style="display: inline;">
+                                        <input type="number" name="quantity" value="{{ recipe.quantity if recipe.quantity else recipe.servings }}"
+                                               min="0.01" step="0.01" style="width: 80px;"
+                                               class="form-control form-control-sm d-inline">
+                                </td>
+                                <td>
+                                        <input type="text" name="unit" value="{{ recipe.unit if recipe.unit else 'servings' }}"
+                                               style="width: 80px;"
+                                               class="form-control form-control-sm d-inline">
+                                        <input type="hidden" name="servings" value="{{ recipe.servings }}">
+                                </td>
+                                <td>${{ "%.2f"|format(recipe.total_cost) }}</td>
+                                <td>
+                                        <button type="submit" class="btn btn-sm btn-outline-success" title="Save">
+                                            <i class="bi bi-check"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('delete_recipe_from_plate', plate_name=plate.name, recipe_name=recipe.name) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                onclick="return confirm('Remove {{ recipe.name }} from this plate?')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Direct Ingredients -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-egg"></i> Direct Ingredients</h5>
+            </div>
+            <div class="card-body">
+                {% if plate_ingredients %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Ingredient</th>
+                                <th>Quantity</th>
+                                <th>Unit</th>
+                                {% if cost_data %}
+                                <th>Cost</th>
+                                {% endif %}
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ingredient in plate_ingredients %}
+                            <tr id="ingredient-{{ loop.index }}">
+                                <td>
+                                    <strong>{{ ingredient.ingredient_name }}</strong>
+                                </td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('update_plate_ingredient', plate_name=plate.name, ingredient_name=ingredient.ingredient_name) }}" style="display: inline;">
+                                        <input type="number" name="quantity" value="{{ ingredient.quantity }}"
+                                               min="0.01" step="0.01" style="width: 80px;"
+                                               class="form-control form-control-sm d-inline">
+                                </td>
+                                <td>
+                                        <input type="text" name="unit" value="{{ ingredient.unit }}"
+                                               style="width: 60px;"
+                                               class="form-control form-control-sm d-inline">
+                                </td>
+                                {% if cost_data %}
+                                <td>
+                                    {% for cost_item in cost_data.ingredient_breakdown %}
+                                        {% if cost_item.name == ingredient.ingredient_name %}
+                                            ${{ "%.2f"|format(cost_item.cost) }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                                {% endif %}
+                                <td>
+                                        <button type="submit" class="btn btn-sm btn-outline-success" title="Save">
+                                            <i class="bi bi-check"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST" action="{{ url_for('delete_ingredient_from_plate', plate_name=plate.name, ingredient_name=ingredient.ingredient_name) }}" style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                onclick="return confirm('Remove {{ ingredient.ingredient_name }} from this plate?')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% elif not plate_recipes %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>No direct ingredients added yet.</strong>
+                    <a href="{{ url_for('add_ingredient_to_plate', plate_name=plate.name) }}"
+                       class="alert-link">Add ingredients or recipes</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cost Breakdown -->
+{% if cost_data %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Detailed Cost Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Recipes -->
+                    {% for recipe in plate_recipes %}
+                    <div class="col-md-3 mb-3">
+                        <div class="border rounded p-3 text-center bg-light">
+                            <span class="badge bg-success mb-2">Recipe</span>
+                            <h6 class="mb-1">{{ recipe.name }}</h6>
+                            <div class="text-muted small">{{ recipe.servings }} servings</div>
+                            <h5 class="text-success mt-2">${{ "%.2f"|format(recipe.total_cost) }}</h5>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <!-- Direct Ingredients -->
+                    {% for item in cost_data.ingredient_breakdown %}
+                    <div class="col-md-3 mb-3">
+                        <div class="border rounded p-3 text-center">
+                            <span class="badge bg-primary mb-2">Ingredient</span>
+                            <h6 class="mb-1">{{ item.name }}</h6>
+                            <div class="text-muted small">{{ item.quantity }} {{ item.unit }}</div>
+                            <h5 class="text-primary mt-2">${{ "%.2f"|format(item.cost) }}</h5>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <!-- Q-Factor -->
+                    <div class="col-md-3 mb-3">
+                        <div class="border rounded p-3 text-center bg-warning bg-opacity-10">
+                            <span class="badge bg-warning mb-2">Overhead</span>
+                            <h6 class="mb-1">Q-Factor</h6>
+                            <div class="text-muted small">{{ "%.1f"|format(cost_data.q_factor * 100) }}% of subtotal</div>
+                            <h5 class="text-warning mt-2">${{ "%.2f"|format(cost_data.q_factor_cost) }}</h5>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Summary -->
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="alert alert-success text-center mb-0">
+                            <h4 class="mb-0">
+                                <strong>Total Plate Cost: ${{ "%.2f"|format(cost_data.total_cost) }}</strong>
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Navigation -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between">
+            <a href="{{ url_for('plates') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Menu Plates
+            </a>
+            <div>
+                <a href="{{ url_for('plates') }}" class="btn btn-secondary">
+                    <i class="bi bi-list"></i> All Plates
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function printPlate() {
+    window.print();
+}
+
+function updateQFactor() {
+    const qFactorPercent = parseFloat(document.getElementById('q_factor_input').value);
+    const qFactorDecimal = qFactorPercent / 100.0;
+
+    // Create form and submit
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("update_plate_qfactor", plate_name=plate.name) }}';
+
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'q_factor';
+    input.value = qFactorDecimal;
+
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// Add print-specific styles
+const style = document.createElement('style');
+style.textContent = `
+    @media print {
+        .btn, .card-header, .alert { display: none !important; }
+        .card { border: 1px solid #000 !important; }
+        .table { font-size: 12px; }
+        h1 { font-size: 18px; }
+        .cost-highlight h3 { font-size: 16px; }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

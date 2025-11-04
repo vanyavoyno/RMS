@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+
+{% block title %}Ingredients - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="display-6 mb-0">
+                <i class="bi bi-bag"></i> Ingredients
+            </h1>
+            <a href="{{ url_for('add_ingredient') }}" class="btn btn-primary">
+                <i class="bi bi-bag-plus"></i> Add New Ingredient
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Search and Filters -->
+    <div class="col-lg-3 mb-4">
+        <div class="sidebar">
+            <h5><i class="bi bi-funnel"></i> Search & Filter</h5>
+
+            <form method="GET" class="mb-3">
+                <div class="mb-3">
+                    <label for="search" class="form-label">Search Ingredients</label>
+                    <input type="text" class="form-control" id="search" name="search"
+                           value="{{ current_search }}" placeholder="Enter ingredient name...">
+                </div>
+
+                <div class="mb-3">
+                    <label for="category" class="form-label">Category</label>
+                    <select class="form-select" id="category" name="category">
+                        <option value="">All Categories</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}" {{ 'selected' if cat == current_category else '' }}>
+                            {{ cat }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                    <a href="{{ url_for('ingredients') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> Clear
+                    </a>
+                </div>
+            </form>
+
+            <div class="border-top pt-3">
+                <h6 class="text-muted">Categories</h6>
+                <div class="small">
+                    {% for cat in categories %}
+                    <a href="{{ url_for('ingredients', category=cat) }}"
+                       class="d-block text-decoration-none py-1 {{ 'fw-bold' if cat == current_category else '' }}">
+                        {{ cat }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ingredients List -->
+    <div class="col-lg-9">
+        {% if current_search or current_category %}
+        <div class="alert alert-info mb-3">
+            <i class="bi bi-info-circle"></i>
+            Showing {{ ingredients|length }} ingredients
+            {% if current_search %}for "{{ current_search }}"{% endif %}
+            {% if current_category %}in category "{{ current_category }}"{% endif %}
+        </div>
+        {% endif %}
+
+        {% if ingredients %}
+            <div class="ingredient-grid">
+                {% for ingredient in ingredients %}
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            {{ ingredient.name }}
+                            {% if not ingredient.is_used %}
+                            <span class="red-dot-blink" style="display: inline-block; width: 10px; height: 10px; background-color: #dc3545; border-radius: 50%; margin-left: 6px; vertical-align: middle;" title="Not used in any recipe or menu plate"></span>
+                            {% endif %}
+                        </h6>
+                        <span class="ingredient-badge">{{ ingredient.category }}</span>
+                    </div>
+                    <div class="card-body">
+                        <!-- Quick Actions -->
+                        <div class="d-flex justify-content-end mb-2">
+                            <button class="btn btn-sm btn-outline-dark edit-price-btn"
+                                    data-ingredient-id="{{ ingredient.id }}"
+                                    data-ingredient-name="{{ ingredient.name }}"
+                                    data-ingredient-category="{{ ingredient.category }}"
+                                    data-ingredient-supplier="{{ ingredient.supplier }}"
+                                    data-purchase-unit="{{ ingredient.purchase_unit }}"
+                                    data-purchase-price="{{ ingredient.purchase_price }}"
+                                    data-inventory-unit="{{ ingredient.inventory_unit }}"
+                                    data-units-per-purchase="{{ ingredient.units_per_purchase }}"
+                                    data-recipe-unit="{{ ingredient.recipe_unit }}"
+                                    data-recipe-units-per-inventory="{{ ingredient.recipe_units_per_inventory }}"
+                                    data-on-hand="{{ ingredient.on_hand }}"
+                                    data-yield-percent="{{ ingredient.yield_percent }}"
+                                    data-allergens="{{ ingredient.allergens }}"
+                                    title="Edit this ingredient">
+                                <i class="bi bi-pencil-square"></i> Edit
+                            </button>
+                        </div>
+                        <div class="row text-center mb-3">
+                            <div class="col-4">
+                                <small class="text-muted d-block">Purchase</small>
+                                <strong>${{ "%.2f"|format(ingredient.purchase_price) }}</strong>
+                                <small class="text-muted">per {{ ingredient.purchase_unit }}</small>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted d-block">Inventory</small>
+                                <strong>${{ "%.2f"|format(ingredient.cost_per_inventory_unit) }}</strong>
+                                <small class="text-muted">per {{ ingredient.inventory_unit }}</small>
+                            </div>
+                            <div class="col-4">
+                                <small class="text-muted d-block">Recipe</small>
+                                <strong>${{ "%.2f"|format(ingredient.cost_per_recipe_unit) }}</strong>
+                                <small class="text-muted">per {{ ingredient.recipe_unit }}</small>
+                            </div>
+                        </div>
+
+                        <div class="row text-center small text-muted">
+                            <div class="col-4">
+                                <div>Yield</div>
+                                <strong>{{ ingredient.yield_percent }}%</strong>
+                            </div>
+                            <div class="col-4">
+                                <div>On Hand</div>
+                                <strong class="editable-on-hand" data-ingredient-id="{{ ingredient.id }}" data-current-value="{{ ingredient.on_hand }}">
+                                    {{ ingredient.on_hand }} {{ ingredient.inventory_unit }}
+                                </strong>
+                            </div>
+                            <div class="col-4">
+                                <div>Per Purchase</div>
+                                <strong>{{ ingredient.units_per_purchase }}</strong>
+                            </div>
+                        </div>
+
+                        {% if ingredient.cost_per_recipe_unit > 50 %}
+                        <div class="alert alert-warning mt-3 py-2 small">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            High cost per recipe unit - check pricing
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination or Load More could go here -->
+            {% if ingredients|length >= 50 %}
+            <div class="text-center mt-4">
+                <p class="text-muted">Showing first 50 ingredients. Use search to narrow results.</p>
+            </div>
+            {% endif %}
+
+        {% else %}
+            <div class="text-center py-5">
+                {% if current_search or current_category %}
+                    <i class="bi bi-search display-1 text-muted"></i>
+                    <h5 class="text-muted mt-3">No ingredients found</h5>
+                    <p class="text-muted">
+                        Try adjusting your search terms or
+                        <a href="{{ url_for('ingredients') }}">view all ingredients</a>
+                    </p>
+                {% else %}
+                    <i class="bi bi-bag-x display-1 text-muted"></i>
+                    <h5 class="text-muted mt-3">No ingredients yet</h5>
+                    <p class="text-muted">Start building your ingredient inventory!</p>
+                    <a href="{{ url_for('add_ingredient') }}" class="btn btn-primary">
+                        <i class="bi bi-bag-plus"></i> Add Your First Ingredient
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bulk Actions (for future enhancement) -->
+{% if ingredients %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h6><i class="bi bi-gear"></i> Bulk Actions</h6>
+                <p class="text-muted small mb-3">Future enhancements: bulk edit, export to CSV, price updates</p>
+                <div class="btn-group">
+                    <button class="btn btn-outline-secondary btn-sm" disabled>
+                        <i class="bi bi-download"></i> Export CSV
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" disabled>
+                        <i class="bi bi-pencil"></i> Bulk Edit
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" disabled>
+                        <i class="bi bi-arrow-up-circle"></i> Update Prices
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Ingredient Edit Modal -->
+<div class="modal fade" id="priceEditModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Ingredient</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="priceEditForm">
+                    <input type="hidden" id="ingredientId" name="ingredient_id">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ingredientName" class="form-label">Ingredient Name</label>
+                                <input type="text" class="form-control" id="ingredientName" name="name" required>
+                                <input type="hidden" id="originalName" name="original_name">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="ingredientCategory" class="form-label">Category</label>
+                                <select class="form-select" id="ingredientCategory" name="category" required>
+                                    <option value="Bar Supplies">Bar Supplies</option>
+                                    <option value="Bread">Bread</option>
+                                    <option value="Canned Goods">Canned Goods</option>
+                                    <option value="Dairy and Eggs">Dairy and Eggs</option>
+                                    <option value="Dry Goods">Dry Goods</option>
+                                    <option value="Frozen">Frozen</option>
+                                    <option value="Meats & Proteins">Meats & Proteins</option>
+                                    <option value="Miscellaneous">Miscellaneous</option>
+                                    <option value="Nuts and Seeds">Nuts and Seeds</option>
+                                    <option value="Oils and Vinegars">Oils and Vinegars</option>
+                                    <option value="Produce">Produce</option>
+                                    <option value="Readymade">Readymade</option>
+                                    <option value="Spices and Seasonings">Spices and Seasonings</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="purchasePrice" class="form-label">Purchase Price ($)</label>
+                                <input type="number" class="form-control" id="purchasePrice" name="purchase_price" step="0.01" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="purchaseUnit" class="form-label">Purchase Unit</label>
+                                <select class="form-select" id="purchaseUnit" name="purchase_unit" required>
+                                    <option value="case">case</option>
+                                    <option value="bag">bag</option>
+                                    <option value="bottle">bottle</option>
+                                    <option value="container">container</option>
+                                    <option value="gal">gal</option>
+                                    <option value="lb">lb</option>
+                                    <option value="dozen">dozen</option>
+                                    <option value="bunch">bunch</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="ingredientSupplier" class="form-label">Supplier/Vendor</label>
+                                <input type="text" class="form-control" id="ingredientSupplier" name="supplier" placeholder="Optional">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="inventoryUnit" class="form-label">Inventory Unit</label>
+                                <select class="form-select" id="inventoryUnit" name="inventory_unit" required>
+                                    <option value="#10 can">#10 can</option>
+                                    <option value="can">can</option>
+                                    <option value="lb">lb</option>
+                                    <option value="ea">ea</option>
+                                    <option value="gal">gal</option>
+                                    <option value="oz">oz</option>
+                                    <option value="bag">bag</option>
+                                    <option value="bottle">bottle</option>
+                                    <option value="C">cup</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="onHand" class="form-label">On Hand</label>
+                                <input type="number" class="form-control" id="onHand" name="on_hand" step="0.1" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="unitsPerPurchase" class="form-label">Units per Purchase</label>
+                                <input type="number" class="form-control" id="unitsPerPurchase" name="units_per_purchase" step="0.01" min="0.01" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="yieldPercent" class="form-label">Yield %</label>
+                                <input type="number" class="form-control" id="yieldPercent" name="yield_percent" step="0.1" min="0" max="100" value="95.0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="recipeUnitsPerInventory" class="form-label">Recipe Units per Inventory</label>
+                                <input type="number" class="form-control" id="recipeUnitsPerInventory" name="recipe_units_per_inventory" step="0.01" min="0.01" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="recipeUnit" class="form-label">Recipe Unit</label>
+                                <select class="form-select" id="recipeUnit" name="recipe_unit" required>
+                                    <option value="#10 can">#10 can</option>
+                                    <option value="can">can</option>
+                                    <option value="bottle">bottle</option>
+                                    <option value="jar">jar</option>
+                                    <option value="tin">tin</option>
+                                    <option value="gal">gallon</option>
+                                    <option value="lb">lb</option>
+                                    <option value="pound">pound</option>
+                                    <option value="oz">oz</option>
+                                    <option value="oz.">oz.</option>
+                                    <option value="ounce">ounce</option>
+                                    <option value="container">container</option>
+                                    <option value="case">case</option>
+                                    <option value="bag">bag</option>
+                                    <option value="pack">pack</option>
+                                    <option value="ea">ea</option>
+                                    <option value="doz">dozen</option>
+                                    <option value="wheel">wheel</option>
+                                    <option value="box">box</option>
+                                    <option value="package">package</option>
+                                    <option value="loaf">loaf</option>
+                                    <option value="bunch">bunch</option>
+                                    <option value="head">head</option>
+                                    <option value="clove">clove</option>
+                                    <option value="cloves">cloves</option>
+                                    <option value="sheet">sheet</option>
+                                    <option value="pita">pita</option>
+                                    <option value="T">tablespoon (T)</option>
+                                    <option value="t">teaspoon (t)</option>
+                                    <option value="tbsp">tbsp</option>
+                                    <option value="C">cup (C)</option>
+                                    <option value="qt">quart</option>
+                                    <option value="pt">pint</option>
+                                    <option value="fl.oz.">fluid ounce</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">⚠️ Allergen Information</label>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input allergen-checkbox" type="checkbox" name="allergens" value="dairy" id="modal_allergen_dairy">
+                                    <label class="form-check-label" for="modal_allergen_dairy">
+                                        🥛 Dairy
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input allergen-checkbox" type="checkbox" name="allergens" value="eggs" id="modal_allergen_eggs">
+                                    <label class="form-check-label" for="modal_allergen_eggs">
+                                        🥚 Eggs
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input allergen-checkbox" type="checkbox" name="allergens" value="fish" id="modal_allergen_fish">
+                                    <label class="form-check-label" for="modal_allergen_fish">
+                                        🐟 Fish
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input allergen-checkbox" type="checkbox" name="allergens" value="shellfish" id="modal_allergen_shellfish">
+                                    <label class="form-check-label" for="modal_allergen_shellfish">
+                                        🦐 Shellfish
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input allergen-checkbox" type="checkbox" name="allergens" value="tree-nuts" id="modal_allergen_tree_nuts">
+                                    <label class="form-check-label" for="modal_allergen_tree_nuts">
+                                        🌰 Tree Nuts
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input allergen-checkbox" type="checkbox" name="allergens" value="peanuts" id="modal_allergen_peanuts">
+                                    <label class="form-check-label" for="modal_allergen_peanuts">
+                                        🥜 Peanuts
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input allergen-checkbox" type="checkbox" name="allergens" value="wheat" id="modal_allergen_wheat">
+                                    <label class="form-check-label" for="modal_allergen_wheat">
+                                        🌾 Wheat/Gluten
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input allergen-checkbox" type="checkbox" name="allergens" value="soy" id="modal_allergen_soy">
+                                    <label class="form-check-label" for="modal_allergen_soy">
+                                        🫘 Soy
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input allergen-checkbox" type="checkbox" name="allergens" value="sesame" id="modal_allergen_sesame">
+                                    <label class="form-check-label" for="modal_allergen_sesame">
+                                        🌱 Sesame
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted">Select all allergens present in this ingredient</small>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <small><strong>Calculated Unit Price:</strong> $<span id="calculatedUnitPrice">0.00</span> per <span id="calculatedUnitName">unit</span></small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="savePriceBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-submit search form on category change
+document.getElementById('category').addEventListener('change', function() {
+    this.closest('form').submit();
+});
+
+// Highlight expensive ingredients
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(card => {
+        try {
+            const strongEl = card.querySelector('.card-body strong');
+            if (strongEl) {
+                const priceText = strongEl.textContent;
+                const price = parseFloat(priceText.replace('$', ''));
+
+                if (price > 50) {
+                    card.classList.add('border-warning');
+                }
+            }
+        } catch (e) {
+            // Ignore errors in individual cards
+        }
+    });
+
+    // Ingredient editing functionality
+    let priceEditModal = null;
+    const modalElement = document.getElementById('priceEditModal');
+    if (modalElement && typeof bootstrap !== 'undefined') {
+        priceEditModal = new bootstrap.Modal(modalElement);
+    }
+
+    // Calculate costs in real-time
+    function calculateCosts() {
+        const purchasePrice = parseFloat(document.getElementById('purchasePrice').value) || 0;
+        const unitsPerPurchase = parseFloat(document.getElementById('unitsPerPurchase').value) || 1;
+        const recipeUnitsPerInventory = parseFloat(document.getElementById('recipeUnitsPerInventory').value) || 1;
+        const yieldPercent = parseFloat(document.getElementById('yieldPercent').value) || 95;
+
+        const costPerInventory = unitsPerPurchase > 0 ? purchasePrice / unitsPerPurchase : 0;
+        const costPerRecipe = (costPerInventory / recipeUnitsPerInventory) / (yieldPercent / 100.0);
+
+        // Update display if elements exist
+        const calcDisplay = document.getElementById('calculatedUnitPrice');
+        if (calcDisplay) {
+            calcDisplay.textContent = costPerRecipe.toFixed(2);
+        }
+    }
+
+    // Handle price edit buttons
+    const editButtons = document.querySelectorAll('.edit-price-btn');
+    editButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (!priceEditModal) {
+                alert('Modal not initialized. Please check if Bootstrap is loaded.');
+                return;
+            }
+
+            const ingredientId = this.dataset.ingredientId;
+            const ingredientName = this.dataset.ingredientName;
+            const ingredientCategory = this.dataset.ingredientCategory;
+            const ingredientSupplier = this.dataset.ingredientSupplier || '';
+            const purchaseUnit = this.dataset.purchaseUnit;
+            const purchasePrice = this.dataset.purchasePrice;
+            const inventoryUnit = this.dataset.inventoryUnit;
+            const unitsPerPurchase = this.dataset.unitsPerPurchase;
+            const recipeUnit = this.dataset.recipeUnit;
+            const recipeUnitsPerInventory = this.dataset.recipeUnitsPerInventory;
+            const onHand = this.dataset.onHand;
+            const yieldPercent = this.dataset.yieldPercent || 95.0;
+            const allergens = this.dataset.allergens || '';
+
+            // Populate form fields
+            document.getElementById('ingredientId').value = ingredientId;
+            document.getElementById('ingredientName').value = ingredientName;
+            document.getElementById('originalName').value = ingredientName;
+            document.getElementById('ingredientCategory').value = ingredientCategory;
+            document.getElementById('ingredientSupplier').value = ingredientSupplier;
+
+            // Handle purchase_unit
+            const purchaseUnitSelect = document.getElementById('purchaseUnit');
+            if (purchaseUnit && !Array.from(purchaseUnitSelect.options).some(opt => opt.value === purchaseUnit)) {
+                const newOption = document.createElement('option');
+                newOption.value = purchaseUnit;
+                newOption.textContent = purchaseUnit;
+                purchaseUnitSelect.appendChild(newOption);
+            }
+            purchaseUnitSelect.value = purchaseUnit;
+
+            document.getElementById('purchasePrice').value = purchasePrice;
+
+            // Handle inventory_unit
+            const inventoryUnitSelect = document.getElementById('inventoryUnit');
+            if (inventoryUnit && !Array.from(inventoryUnitSelect.options).some(opt => opt.value === inventoryUnit)) {
+                const newOption = document.createElement('option');
+                newOption.value = inventoryUnit;
+                newOption.textContent = inventoryUnit;
+                inventoryUnitSelect.appendChild(newOption);
+            }
+            inventoryUnitSelect.value = inventoryUnit;
+
+            document.getElementById('unitsPerPurchase').value = unitsPerPurchase;
+
+            // Handle recipe_unit
+            const recipeUnitSelect = document.getElementById('recipeUnit');
+            if (recipeUnit && !Array.from(recipeUnitSelect.options).some(opt => opt.value === recipeUnit)) {
+                const newOption = document.createElement('option');
+                newOption.value = recipeUnit;
+                newOption.textContent = recipeUnit;
+                recipeUnitSelect.appendChild(newOption);
+            }
+            recipeUnitSelect.value = recipeUnit;
+
+            document.getElementById('recipeUnitsPerInventory').value = recipeUnitsPerInventory;
+            document.getElementById('onHand').value = onHand;
+            document.getElementById('yieldPercent').value = yieldPercent;
+
+            // Clear all allergen checkboxes first
+            document.querySelectorAll('.allergen-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+
+            // Set allergen checkboxes based on saved allergens
+            if (allergens) {
+                const allergenList = allergens.split(',');
+                allergenList.forEach(allergen => {
+                    const checkbox = document.getElementById('modal_allergen_' + allergen.replace('-', '_'));
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+            }
+
+            // Calculate initial costs
+            calculateCosts();
+
+            // Show modal
+            priceEditModal.show();
+        });
+    });
+
+    // Add event listeners for real-time calculation (only if elements exist)
+    const purchasePriceEl = document.getElementById('purchasePrice');
+    const unitsPerPurchaseEl = document.getElementById('unitsPerPurchase');
+    const recipeUnitsPerInventoryEl = document.getElementById('recipeUnitsPerInventory');
+    const yieldPercentEl = document.getElementById('yieldPercent');
+    const recipeUnitEl = document.getElementById('recipeUnit');
+    const savePriceBtnEl = document.getElementById('savePriceBtn');
+
+    if (purchasePriceEl) purchasePriceEl.addEventListener('input', calculateCosts);
+    if (unitsPerPurchaseEl) unitsPerPurchaseEl.addEventListener('input', calculateCosts);
+    if (recipeUnitsPerInventoryEl) recipeUnitsPerInventoryEl.addEventListener('input', calculateCosts);
+    if (yieldPercentEl) yieldPercentEl.addEventListener('input', calculateCosts);
+    if (recipeUnitEl) recipeUnitEl.addEventListener('change', calculateCosts);
+
+    // Save ingredient changes
+    if (savePriceBtnEl) {
+        savePriceBtnEl.addEventListener('click', function() {
+            const formData = new FormData(document.getElementById('priceEditForm'));
+
+            fetch('/api/update_ingredient', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload(); // Refresh the page to show updated ingredient
+                } else {
+                    alert('Error updating ingredient: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error updating ingredient: ' + error);
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

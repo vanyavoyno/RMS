@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Menu Plates - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="display-6">
+                <i class="bi bi-grid-3x3-gap"></i> Menu Plates
+            </h1>
+            <div class="d-flex gap-3 align-items-center">
+                <button class="btn btn-primary" onclick="showAddPlateModal()">
+                    <i class="bi bi-plus"></i> Add Plate
+                </button>
+                <a href="{{ url_for('plate_categories') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-tags"></i> Manage Categories
+                </a>
+                <div class="stats-card p-3 rounded">
+                    <h3 class="mb-1">{{ categories.values() | map('length') | sum }}</h3>
+                    <small class="opacity-75">Total Plates</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if categories %}
+    {% for category, plates in categories.items() %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-tag"></i> {{ category }}
+                        <span class="badge bg-secondary ms-2">{{ plates|length }} items</span>
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 80px;">Order</th>
+                                    <th>Plate Name</th>
+                                    <th>Description</th>
+                                    <th style="width: 200px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for plate in plates %}
+                                <tr>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            {% if not loop.first %}
+                                            <button class="btn btn-outline-secondary btn-sm"
+                                                    onclick="movePlate('{{ plate.name }}', '{{ category }}', 'up')"
+                                                    title="Move up">
+                                                <i class="bi bi-arrow-up"></i>
+                                            </button>
+                                            {% endif %}
+                                            {% if not loop.last %}
+                                            <button class="btn btn-outline-secondary btn-sm"
+                                                    onclick="movePlate('{{ plate.name }}', '{{ category }}', 'down')"
+                                                    title="Move down">
+                                                <i class="bi bi-arrow-down"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <strong>{{ plate.name }}</strong>
+                                        {% if plate.allergens %}
+                                        <span class="ms-2" title="Contains allergens">{{ plate.allergens }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><small class="text-muted">{{ plate.description }}</small></td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('plate_detail', plate_name=plate.name) }}"
+                                               class="btn btn-outline-primary btn-sm">
+                                                <i class="bi bi-eye"></i> View
+                                            </a>
+                                            <button class="btn btn-outline-warning btn-sm"
+                                                    onclick="archivePlate('{{ plate.name }}')"
+                                                    title="Archive (hide from menu)">
+                                                <i class="bi bi-archive"></i> Archive
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info text-center">
+                <h4><i class="bi bi-info-circle"></i> No Menu Plates Found</h4>
+                <p>No plates have been created yet. Import data or create your first plate!</p>
+                <button class="btn btn-primary">
+                    <i class="bi bi-plus"></i> Add First Plate
+                </button>
+            </div>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Quick Stats -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Category Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    {% for category, plates in categories.items() %}
+                    <div class="col-md-3 mb-3">
+                        <div class="border rounded p-3">
+                            <h4 class="text-primary">{{ plates|length }}</h4>
+                            <small class="text-muted">{{ category }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Plate Modal -->
+<div class="modal fade" id="addPlateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Plate</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_plate') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="plate_name" class="form-label">Plate Name *</label>
+                        <input type="text" class="form-control" id="plate_name"
+                               name="plate_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="plate_category" class="form-label">Category *</label>
+                        <select class="form-select" id="plate_category" name="category" required>
+                            <option value="">Select category...</option>
+                            {% for category in all_categories %}
+                            <option value="{{ category }}">{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="plate_description" class="form-label">Description</label>
+                        <textarea class="form-control" id="plate_description"
+                                  name="description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus"></i> Add Plate
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showAddPlateModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addPlateModal'));
+    modal.show();
+}
+
+function movePlate(plateName, category, direction) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("move_plate") }}';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'hidden';
+    nameInput.name = 'plate_name';
+    nameInput.value = plateName;
+
+    const catInput = document.createElement('input');
+    catInput.type = 'hidden';
+    catInput.name = 'category';
+    catInput.value = category;
+
+    const dirInput = document.createElement('input');
+    dirInput.type = 'hidden';
+    dirInput.name = 'direction';
+    dirInput.value = direction;
+
+    form.appendChild(nameInput);
+    form.appendChild(catInput);
+    form.appendChild(dirInput);
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function archivePlate(plateName) {
+    if (confirm(`Archive "${plateName}"? It will be hidden from the menu but not deleted.`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("archive_plate") }}';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'plate_name';
+        input.value = plateName;
+
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+</script>
+{% endblock %}

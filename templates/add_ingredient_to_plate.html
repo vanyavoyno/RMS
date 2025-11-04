@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Add Component to {{ plate_name }} - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-plus-circle"></i> Add Component to "{{ plate_name }}"
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- Component Type Selection -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">What would you like to add?</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="component_type" id="type_ingredient" value="ingredient" checked>
+                        <label class="btn btn-outline-primary" for="type_ingredient">
+                            <i class="bi bi-egg"></i> Ingredient
+                        </label>
+
+                        <input type="radio" class="btn-check" name="component_type" id="type_recipe" value="recipe">
+                        <label class="btn btn-outline-primary" for="type_recipe">
+                            <i class="bi bi-book"></i> Recipe
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Ingredient Form -->
+                <form method="POST" action="/plate/{{ plate_name }}/add_ingredient" id="ingredientForm">
+                    <input type="hidden" name="component_type" value="ingredient">
+
+                    <div class="mb-3">
+                        <label for="ingredient_category" class="form-label">Category *</label>
+                        <select class="form-select" id="ingredient_category" required>
+                            <option value="">Select category first...</option>
+                            {% for category in ingredients_by_category.keys()|sort %}
+                            <option value="{{ category }}">{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="ingredient_name" class="form-label">Ingredient *</label>
+                        <select class="form-select" id="ingredient_name" name="ingredient_name" required disabled>
+                            <option value="">Select category first...</option>
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="ingredient_quantity" class="form-label">Quantity *</label>
+                            <input type="number" class="form-control" id="ingredient_quantity" name="quantity"
+                                   min="0" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="ingredient_unit" class="form-label">Unit *</label>
+                            <select class="form-select" id="ingredient_unit" name="unit" required>
+                                <option value="">Select unit...</option>
+                                <optgroup label="Plating Terms">
+                                    <option value="drizzle">Drizzle</option>
+                                    <option value="garnish">Garnish</option>
+                                    <option value="wedge">Wedge</option>
+                                    <option value="pinch">Pinch</option>
+                                    <option value="sprinkle">Sprinkle</option>
+                                    <option value="dollop">Dollop</option>
+                                    <option value="sprig">Sprig</option>
+                                    <option value="dust">Dust</option>
+                                    <option value="smear">Smear</option>
+                                    <option value="quenelle">Quenelle</option>
+                                    <option value="other">Other</option>
+                                </optgroup>
+                                <optgroup label="Standard Measures">
+                                    <option value="C">Cup (C)</option>
+                                    <option value="T">Tablespoon (T)</option>
+                                    <option value="t">Teaspoon (t)</option>
+                                    <option value="lb">Pound (lb)</option>
+                                    <option value="oz">Ounce (oz)</option>
+                                    <option value="g">Gram (g)</option>
+                                    <option value="kg">Kilogram (kg)</option>
+                                    <option value="ml">Milliliter (ml)</option>
+                                    <option value="L">Liter (L)</option>
+                                </optgroup>
+                                <optgroup label="Common Units">
+                                    <option value="ea">Each (ea)</option>
+                                    <option value="clove">Clove</option>
+                                    <option value="slice">Slice</option>
+                                    <option value="can">Can</option>
+                                    <option value="bunch">Bunch</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Tip:</strong> Select a category first to see ingredients in that category.
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="/plate/{{ plate_name }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Plate
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check"></i> Add Ingredient
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Recipe Form (hidden by default) -->
+                <form method="POST" action="/plate/{{ plate_name }}/add_recipe" id="recipeForm" class="d-none">
+                    <input type="hidden" name="component_type" value="recipe">
+
+                    <div class="mb-3">
+                        <label for="recipe_name" class="form-label">Recipe *</label>
+                        <select class="form-select" id="recipe_name" name="recipe_name" required>
+                            <option value="">Select recipe...</option>
+                            {% for recipe in recipes %}
+                            <option value="{{ recipe.name }}"
+                                    data-servings="{{ recipe.servings }}">
+                                {{ recipe.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="recipe_servings" class="form-label">Servings *</label>
+                        <input type="number" class="form-control" id="recipe_servings" name="servings"
+                               min="0.1" step="0.1" value="1.0" required placeholder="1.0">
+                        <small class="text-muted">How many servings of this recipe are in this plate?</small>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Example:</strong> For "Baba Ganoush" plate that includes "Baba Ganoush" recipe - use 1.0 servings if the plate equals one recipe serving.
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="/plate/{{ plate_name }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Plate
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check"></i> Add Recipe
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Ingredient data by category
+const ingredientsByCategory = {{ ingredients_by_category | tojson }};
+
+// Toggle between ingredient and recipe forms
+document.querySelectorAll('input[name="component_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const ingredientForm = document.getElementById('ingredientForm');
+        const recipeForm = document.getElementById('recipeForm');
+
+        if (this.value === 'ingredient') {
+            ingredientForm.classList.remove('d-none');
+            recipeForm.classList.add('d-none');
+        } else {
+            ingredientForm.classList.add('d-none');
+            recipeForm.classList.remove('d-none');
+        }
+    });
+});
+
+// Handle category selection for ingredients
+document.getElementById('ingredient_category').addEventListener('change', function() {
+    const category = this.value;
+    const ingredientSelect = document.getElementById('ingredient_name');
+    const unitSelect = document.getElementById('ingredient_unit');
+
+    if (!category) {
+        ingredientSelect.disabled = true;
+        ingredientSelect.innerHTML = '<option value="">Select category first...</option>';
+        return;
+    }
+
+    const ingredients = ingredientsByCategory[category] || [];
+
+    ingredientSelect.innerHTML = '<option value="">Select ingredient...</option>';
+    ingredients.forEach(ing => {
+        const option = document.createElement('option');
+        option.value = ing.name;
+        option.textContent = ing.name;
+        option.dataset.recipeUnit = ing.recipe_unit;
+        ingredientSelect.appendChild(option);
+    });
+
+    ingredientSelect.disabled = false;
+});
+
+// Auto-set unit when ingredient is selected
+document.getElementById('ingredient_name').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const recipeUnit = selectedOption.dataset.recipeUnit;
+    const unitSelect = document.getElementById('ingredient_unit');
+
+    if (recipeUnit) {
+        // Try to match the recipe unit to the dropdown options
+        const unitMapping = {
+            'cup': 'C',
+            'tablespoon': 'T',
+            'teaspoon': 't',
+            'pound': 'lb',
+            'ounce': 'oz',
+            'each': 'ea',
+            'gram': 'g',
+            'kilogram': 'kg',
+            'milliliter': 'ml',
+            'liter': 'L'
+        };
+
+        const mappedUnit = unitMapping[recipeUnit.toLowerCase()] || recipeUnit;
+        unitSelect.value = mappedUnit;
+    }
+
+    // Focus on quantity field
+    document.getElementById('ingredient_quantity').focus();
+});
+
+// Auto-populate servings when recipe is selected
+document.getElementById('recipe_name').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const defaultServings = selectedOption.dataset.servings;
+
+    if (defaultServings) {
+        document.getElementById('recipe_servings').value = '1.0';
+    }
+
+    document.getElementById('recipe_servings').focus();
+});
+</script>
+{% endblock %}

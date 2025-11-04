@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}Scale {{ recipe_name }} - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="display-6 mb-4">
+            <i class="bi bi-arrows-fullscreen"></i> Scaled Recipe: {{ recipe_name }}
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Scaling Summary -->
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-calculator"></i> Scaling Summary</h5>
+            </div>
+            <div class="card-body">
+                {% if scaled_data.is_whole_unit %}
+                <!-- Whole Unit Recipe Display -->
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Whole Unit Recipe:</strong> This recipe comes in discrete units and cannot be smoothly scaled.
+                </div>
+
+                <div class="row text-center mb-3">
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <h5 class="text-primary mb-1">{{ scaled_data.original_servings }}</h5>
+                            <small class="text-muted">Per Unit</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <h5 class="text-warning mb-1">{{ scaled_data.new_servings }}</h5>
+                            <small class="text-muted">Requested</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border rounded p-2">
+                            <h5 class="text-success mb-1">{{ scaled_data.actual_servings }}</h5>
+                            <small class="text-muted">Actual</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mb-3">
+                    <div class="stats-card p-3 rounded">
+                        <h3 class="mb-1">{{ scaled_data.units_needed }} {{ 'unit' if scaled_data.units_needed == 1 else 'units' }}</h3>
+                        <small class="opacity-75">Required {{ recipe_name }}(s)</small>
+                    </div>
+                </div>
+
+                {% if scaled_data.waste_servings > 0 %}
+                <div class="alert alert-warning mb-3">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Note:</strong> You'll have {{ scaled_data.waste_servings }} extra serving{{ 's' if scaled_data.waste_servings != 1 else '' }} ({{ scaled_data.actual_servings }} total - {{ scaled_data.new_servings }} needed).
+                </div>
+                {% endif %}
+
+                {% else %}
+                <!-- Regular Scaling Display -->
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="border rounded p-3">
+                            <h4 class="text-primary">{{ scaled_data.original_servings }}</h4>
+                            <small class="text-muted">Original Servings</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-3">
+                            <h4 class="text-success">{{ scaled_data.new_servings }}</h4>
+                            <small class="text-muted">New Servings</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mb-3">
+                    <div class="stats-card p-3 rounded">
+                        <h3 class="mb-1">{{ "%.2f"|format(scaled_data.scale_factor) }}x</h3>
+                        <small class="opacity-75">Scale Factor</small>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="cost-highlight">
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span>Scaled Ingredients:</span>
+                            <strong id="scaled_ingredient_display">${{ "%.2f"|format(scaled_data.scaled_ingredient_cost) }}</strong>
+                        </div>
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Prep Overhead:</span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="input-group input-group-sm" style="max-width: 100px;">
+                                        <input type="number" class="form-control form-control-sm" id="scaled_prep_factor"
+                                               value="{{ (scaled_data.prep_factor * 100)|round(1) }}"
+                                               min="0" max="100" step="0.1"
+                                               onchange="recalculateScaledCost()">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                    <strong id="prep_cost_display">${{ "%.2f"|format(scaled_data.prep_factor_cost) }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted d-block">
+                            <i class="bi bi-info-circle"></i> Adjust prep overhead for scaled batch
+                        </small>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span><strong>Total Cost:</strong></span>
+                        <strong id="total_cost_display">${{ "%.2f"|format(scaled_data.scaled_cost) }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Cost per Serving:</span>
+                        <strong id="cost_per_serving_display">${{ "%.2f"|format(scaled_data.cost_per_serving) }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6><i class="bi bi-lightbulb"></i> Quick Actions</h6>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary btn-sm" onclick="scaleAgain()">
+                        <i class="bi bi-arrow-repeat"></i> Scale to Different Size
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="printScaled()">
+                        <i class="bi bi-printer"></i> Print Scaled Recipe
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scaled Ingredients -->
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bag"></i> Scaled Ingredients</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Ingredient</th>
+                                <th>Original Amount</th>
+                                <th>Scaled Amount</th>
+                                <th>Unit</th>
+                                <th>Change</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ingredient in scaled_data.scaled_ingredients %}
+                            <tr>
+                                <td class="fw-bold">{{ ingredient.name }}</td>
+                                <td class="text-muted">{{ ingredient.original_quantity }}</td>
+                                <td class="fw-bold text-primary">{{ ingredient.scaled_quantity }}</td>
+                                <td>{{ ingredient.unit }}</td>
+                                <td>
+                                    {% set change = ((ingredient.scaled_quantity - ingredient.original_quantity) / ingredient.original_quantity * 100) | round(0) %}
+                                    {% if change > 0 %}
+                                        <span class="text-success">+{{ change }}%</span>
+                                    {% elif change < 0 %}
+                                        <span class="text-danger">{{ change }}%</span>
+                                    {% else %}
+                                        <span class="text-muted">0%</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="alert alert-info mt-3">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Note:</strong> These are calculated amounts. For best results, measure ingredients carefully and adjust seasonings to taste.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scaled Instructions -->
+{% if scaled_data.scaled_instructions %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-journal-text"></i> Scaled Cooking Instructions</h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="editInstructions()">
+                    <i class="bi bi-pencil"></i> Edit Instructions
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="instructions-display">
+                    <div class="instructions-content">
+                        {{ scaled_data.scaled_instructions|replace('\n', '<br>')|safe }}
+                    </div>
+                </div>
+                <div id="instructions-edit" class="d-none">
+                    <textarea class="form-control" id="instructions-textarea" rows="10">{{ scaled_data.scaled_instructions }}</textarea>
+                    <div class="mt-3">
+                        <button class="btn btn-success" onclick="saveInstructions()">
+                            <i class="bi bi-check"></i> Save Changes
+                        </button>
+                        <button class="btn btn-secondary" onclick="cancelEditInstructions()">
+                            <i class="bi bi-x"></i> Cancel
+                        </button>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning mt-3">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Auto-Scaled Instructions:</strong> These instructions have been automatically adjusted for scaled quantities.
+                    Please review and edit as needed for your specific scaling requirements.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Cost Comparison -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> Cost Comparison</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="border rounded p-3">
+                            <h5 class="text-primary">${{ scaled_data.original_cost }}</h5>
+                            <small class="text-muted">Original Total Cost</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3">
+                            <h5 class="text-success">${{ scaled_data.scaled_cost }}</h5>
+                            <small class="text-muted">Scaled Total Cost</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3">
+                            <h5 class="text-info">${{ scaled_data.cost_per_serving }}</h5>
+                            <small class="text-muted">Cost per Serving</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3">
+                            {% set savings = scaled_data.original_cost - scaled_data.scaled_cost %}
+                            <h5 class="{{ 'text-success' if savings > 0 else 'text-danger' if savings < 0 else 'text-muted' }}">
+                                {{ '+' if savings > 0 else '' }}${{ "%.2f"|format(savings) }}
+                            </h5>
+                            <small class="text-muted">Cost Difference</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between">
+            <a href="{{ url_for('recipe_detail', recipe_name=recipe_name) }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Recipe
+            </a>
+            <div>
+                <a href="{{ url_for('recipes') }}" class="btn btn-secondary">
+                    <i class="bi bi-list"></i> All Recipes
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scale Again Modal -->
+<div class="modal fade" id="scaleAgainModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Scale to Different Size</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newServingsAgain" class="form-label">Number of Servings</label>
+                    <input type="number" class="form-control" id="newServingsAgain"
+                           value="{{ scaled_data.new_servings }}" min="1" max="100">
+                </div>
+                <div class="alert alert-info">
+                    <small><i class="bi bi-info-circle"></i> Original recipe serves {{ scaled_data.original_servings }}</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="scaleToNewSize()">Scale Recipe</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function scaleAgain() {
+    const modal = new bootstrap.Modal(document.getElementById('scaleAgainModal'));
+    modal.show();
+}
+
+function scaleToNewSize() {
+    const newServings = document.getElementById('newServingsAgain').value;
+    window.location.href = `/scale_recipe/{{ recipe_name }}?servings=${newServings}`;
+}
+
+function printScaled() {
+    window.print();
+}
+
+// Instructions editing functions
+function editInstructions() {
+    document.getElementById('instructions-display').classList.add('d-none');
+    document.getElementById('instructions-edit').classList.remove('d-none');
+}
+
+function cancelEditInstructions() {
+    document.getElementById('instructions-edit').classList.add('d-none');
+    document.getElementById('instructions-display').classList.remove('d-none');
+}
+
+function saveInstructions() {
+    const newInstructions = document.getElementById('instructions-textarea').value;
+
+    // Update the display content
+    const displayContent = newInstructions.replace(/\n/g, '<br>');
+    document.querySelector('.instructions-content').innerHTML = displayContent;
+
+    // Hide edit mode
+    cancelEditInstructions();
+
+    // Show success message
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-success alert-dismissible fade show mt-2';
+    alert.innerHTML = `
+        <i class="bi bi-check-circle"></i>
+        Instructions updated successfully!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('#instructions-display').appendChild(alert);
+
+    // Remove success message after 3 seconds
+    setTimeout(() => {
+        if (alert && alert.parentNode) {
+            alert.remove();
+        }
+    }, 3000);
+}
+
+// Auto-resize textarea
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('instructions-textarea');
+    if (textarea) {
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.max(this.scrollHeight, 200) + 'px';
+        });
+    }
+});
+
+// Recalculate costs when prep factor changes
+function recalculateScaledCost() {
+    const scaledIngredientCost = {{ scaled_data.scaled_ingredient_cost }};
+    const prepFactorPercent = parseFloat(document.getElementById('scaled_prep_factor').value);
+    const prepFactorDecimal = prepFactorPercent / 100.0;
+
+    // Calculate prep cost based on SCALED ingredient cost
+    const prepCost = scaledIngredientCost * prepFactorDecimal;
+    const totalCost = scaledIngredientCost + prepCost;
+
+    {% if scaled_data.is_whole_unit %}
+    const servings = {{ scaled_data.actual_servings }};
+    {% else %}
+    const servings = {{ scaled_data.new_servings }};
+    {% endif %}
+
+    const costPerServing = totalCost / servings;
+
+    // Update display
+    document.getElementById('prep_cost_display').textContent = '$' + prepCost.toFixed(2);
+    document.getElementById('total_cost_display').textContent = '$' + totalCost.toFixed(2);
+    document.getElementById('cost_per_serving_display').textContent = '$' + costPerServing.toFixed(2);
+}
+
+// Add print-specific styles
+const style = document.createElement('style');
+style.textContent = `
+    @media print {
+        .btn, .card-header, .alert, .modal { display: none !important; }
+        .card { border: 1px solid #000 !important; }
+        .table { font-size: 12px; }
+        .instructions-content { font-size: 14px; line-height: 1.4; }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

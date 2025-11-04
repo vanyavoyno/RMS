@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}Add Ingredient - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-bag-plus"></i> Add New Ingredient
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <!-- Basic Info Section -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-info-circle"></i> Basic Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="name" class="form-label">Ingredient Name *</label>
+                                    <input type="text" class="form-control" id="name" name="name" required
+                                           placeholder="e.g., Chickpeas, Olive Oil">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="category" class="form-label">Category *</label>
+                                    <select class="form-select" id="category" name="category" required>
+                                        <option value="">Select category...</option>
+                                        {% for cat in categories %}
+                                        <option value="{{ cat }}">{{ cat }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="supplier" class="form-label">Supplier/Vendor (Optional)</label>
+                                    <input type="text" class="form-control" id="supplier" name="supplier"
+                                           placeholder="e.g., Sysco, US Foods">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Purchase Level Section -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-cart-check"></i> Purchase Information</h5>
+                            <small>How you buy this ingredient from your supplier</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="purchase_unit" class="form-label">Purchase Unit *</label>
+                                    <select class="form-select" id="purchase_unit" name="purchase_unit" required>
+                                        <option value="">Select unit...</option>
+                                        <option value="case">Case</option>
+                                        <option value="bag">Bag</option>
+                                        <option value="container">Container</option>
+                                        <option value="bottle">Bottle</option>
+                                        <option value="gal">Gallon</option>
+                                        <option value="lb">Pound</option>
+                                        <option value="dozen">Dozen</option>
+                                        <option value="bunch">Bunch</option>
+                                    </select>
+                                    <small class="text-muted">The unit you purchase from supplier</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="purchase_price" class="form-label">Purchase Price ($) *</label>
+                                    <input type="number" class="form-control" id="purchase_price" name="purchase_price"
+                                           min="0" step="0.01" required placeholder="0.00">
+                                    <small class="text-muted">Price per purchase unit</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inventory Level Section -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="bi bi-boxes"></i> Inventory Tracking</h5>
+                            <small>How you track this ingredient in your inventory</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="inventory_unit" class="form-label">Inventory Unit *</label>
+                                    <select class="form-select" id="inventory_unit" name="inventory_unit" required>
+                                        <option value="">Select unit...</option>
+                                        <option value="#10 can">#10 Can</option>
+                                        <option value="can">Can</option>
+                                        <option value="jar">Jar</option>
+                                        <option value="bottle">Bottle</option>
+                                        <option value="lb">Pound (lb)</option>
+                                        <option value="oz">Ounce (oz)</option>
+                                        <option value="gal">Gallon</option>
+                                        <option value="ea">Each (ea)</option>
+                                        <option value="bag">Bag</option>
+                                        <option value="box">Box</option>
+                                        <option value="C">Cup</option>
+                                    </select>
+                                    <small class="text-muted">Unit for inventory tracking</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="units_per_purchase" class="form-label">Units per Purchase *</label>
+                                    <input type="number" class="form-control" id="units_per_purchase" name="units_per_purchase"
+                                           min="0.01" step="0.01" required placeholder="1">
+                                    <small class="text-muted" id="units_per_purchase_help">How many inventory units per purchase unit</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="on_hand" class="form-label">On Hand</label>
+                                    <input type="number" class="form-control" id="on_hand" name="on_hand"
+                                           min="0" step="0.1" value="0" placeholder="0">
+                                    <small class="text-muted">Current inventory (in inventory units)</small>
+                                </div>
+                            </div>
+                            <div class="alert alert-info mb-0">
+                                <strong>Example:</strong> Case of 6 #10 cans →
+                                <span class="text-primary">Purchase: case, Inventory: #10 can, Units per Purchase: 6</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recipe Level Section -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-warning">
+                            <h5 class="mb-0"><i class="bi bi-file-earmark-text"></i> Recipe Usage</h5>
+                            <small>How recipes use this ingredient</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="recipe_unit" class="form-label">Recipe Unit *</label>
+                                    <select class="form-select" id="recipe_unit" name="recipe_unit" required>
+                                        <option value="">Select unit...</option>
+                                        <option value="C">Cup (C)</option>
+                                        <option value="T">Tablespoon (T)</option>
+                                        <option value="t">Teaspoon (t)</option>
+                                        <option value="lb">Pound (lb)</option>
+                                        <option value="oz">Ounce (oz)</option>
+                                        <option value="oz.">Ounce (oz.)</option>
+                                        <option value="gal">Gallon</option>
+                                        <option value="qt">Quart</option>
+                                        <option value="pt">Pint</option>
+                                        <option value="can">Can</option>
+                                        <option value="#10 can">#10 Can</option>
+                                        <option value="ea">Each (ea)</option>
+                                        <option value="clove">Clove</option>
+                                        <option value="slice">Slice</option>
+                                        <option value="pita">Pita</option>
+                                        <option value="sheet">Sheet</option>
+                                    </select>
+                                    <small class="text-muted">Unit used in recipes</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="recipe_units_per_inventory" class="form-label">Recipe Units per Inventory *</label>
+                                    <input type="number" class="form-control" id="recipe_units_per_inventory"
+                                           name="recipe_units_per_inventory" min="0.01" step="0.01" required placeholder="1">
+                                    <small class="text-muted" id="recipe_units_help">How many recipe units per inventory unit</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="yield_percent" class="form-label">Yield Percentage</label>
+                                    <input type="number" class="form-control" id="yield_percent" name="yield_percent"
+                                           min="1" max="100" value="95" step="0.1">
+                                    <small class="text-muted">Usable amount after prep (%)</small>
+                                </div>
+                            </div>
+                            <div class="alert alert-info mb-0">
+                                <strong>Example:</strong> #10 can with 12 cups →
+                                <span class="text-primary">Recipe Unit: C (cup), Recipe Units per Inventory: 12</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Allergen Information -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">⚠️ Allergen Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="allergens" value="dairy" id="allergen_dairy">
+                                        <label class="form-check-label" for="allergen_dairy">🥛 Dairy</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="allergens" value="eggs" id="allergen_eggs">
+                                        <label class="form-check-label" for="allergen_eggs">🥚 Eggs</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="allergens" value="fish" id="allergen_fish">
+                                        <label class="form-check-label" for="allergen_fish">🐟 Fish</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="allergens" value="shellfish" id="allergen_shellfish">
+                                        <label class="form-check-label" for="allergen_shellfish">🦐 Shellfish</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="allergens" value="tree-nuts" id="allergen_tree_nuts">
+                                        <label class="form-check-label" for="allergen_tree_nuts">🌰 Tree Nuts</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="allergens" value="peanuts" id="allergen_peanuts">
+                                        <label class="form-check-label" for="allergen_peanuts">🥜 Peanuts</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="allergens" value="wheat" id="allergen_wheat">
+                                        <label class="form-check-label" for="allergen_wheat">🌾 Wheat/Gluten</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="allergens" value="soy" id="allergen_soy">
+                                        <label class="form-check-label" for="allergen_soy">🫘 Soy</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="allergens" value="sesame" id="allergen_sesame">
+                                        <label class="form-check-label" for="allergen_sesame">🌱 Sesame</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">Select all allergens present in this ingredient</small>
+                        </div>
+                    </div>
+
+                    <!-- Calculated Costs Preview -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-calculator"></i> Cost Preview</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-4">
+                                    <div class="border rounded p-3">
+                                        <small class="text-muted d-block">Purchase Cost</small>
+                                        <h5 id="preview_purchase_cost" class="text-primary mb-0">$0.00</h5>
+                                        <small class="text-muted" id="preview_purchase_unit">per unit</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="border rounded p-3">
+                                        <small class="text-muted d-block">Inventory Cost</small>
+                                        <h5 id="preview_inventory_cost" class="text-success mb-0">$0.00</h5>
+                                        <small class="text-muted" id="preview_inventory_unit">per unit</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="border rounded p-3">
+                                        <small class="text-muted d-block">Recipe Cost</small>
+                                        <h5 id="preview_recipe_cost" class="text-warning mb-0">$0.00</h5>
+                                        <small class="text-muted" id="preview_recipe_unit">per unit</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('ingredients') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Ingredients
+                        </a>
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="bi bi-check-lg"></i> Add Ingredient
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Update helper text dynamically
+function updateHelperText() {
+    const purchaseUnit = document.getElementById('purchase_unit').value || 'purchase unit';
+    const inventoryUnit = document.getElementById('inventory_unit').value || 'inventory unit';
+    const recipeUnit = document.getElementById('recipe_unit').value || 'recipe unit';
+
+    document.getElementById('units_per_purchase_help').textContent =
+        `How many ${inventoryUnit}s per ${purchaseUnit}`;
+    document.getElementById('recipe_units_help').textContent =
+        `How many ${recipeUnit}s per ${inventoryUnit}`;
+}
+
+// Calculate and display cost preview
+function updateCostPreview() {
+    const purchasePrice = parseFloat(document.getElementById('purchase_price').value) || 0;
+    const unitsPerPurchase = parseFloat(document.getElementById('units_per_purchase').value) || 1;
+    const recipeUnitsPerInventory = parseFloat(document.getElementById('recipe_units_per_inventory').value) || 1;
+    const yieldPercent = parseFloat(document.getElementById('yield_percent').value) || 95;
+
+    const costPerInventory = purchasePrice / unitsPerPurchase;
+    const costPerRecipe = (costPerInventory / recipeUnitsPerInventory) / (yieldPercent / 100);
+
+    const purchaseUnit = document.getElementById('purchase_unit').value || 'unit';
+    const inventoryUnit = document.getElementById('inventory_unit').value || 'unit';
+    const recipeUnit = document.getElementById('recipe_unit').value || 'unit';
+
+    document.getElementById('preview_purchase_cost').textContent = `$${purchasePrice.toFixed(2)}`;
+    document.getElementById('preview_purchase_unit').textContent = `per ${purchaseUnit}`;
+
+    document.getElementById('preview_inventory_cost').textContent = `$${costPerInventory.toFixed(2)}`;
+    document.getElementById('preview_inventory_unit').textContent = `per ${inventoryUnit}`;
+
+    document.getElementById('preview_recipe_cost').textContent = `$${costPerRecipe.toFixed(2)}`;
+    document.getElementById('preview_recipe_unit').textContent = `per ${recipeUnit}`;
+}
+
+// Add event listeners
+document.getElementById('purchase_unit').addEventListener('change', function() {
+    updateHelperText();
+    updateCostPreview();
+
+    // Auto-suggest inventory unit based on purchase unit
+    const suggestions = {
+        'case': ['#10 can', 'can', 'lb', 'ea'],
+        'bag': ['lb', 'oz'],
+        'container': ['C', 'oz.'],
+        'bottle': ['oz.', 'gal'],
+        'gal': ['gal'],
+        'lb': ['lb', 'oz'],
+        'dozen': ['ea'],
+        'bunch': ['ea']
+    };
+
+    const inventorySelect = document.getElementById('inventory_unit');
+    if (!inventorySelect.value && suggestions[this.value]) {
+        inventorySelect.value = suggestions[this.value][0];
+        updateHelperText();
+    }
+});
+
+document.getElementById('inventory_unit').addEventListener('change', function() {
+    updateHelperText();
+    updateCostPreview();
+
+    // Auto-suggest recipe unit based on inventory unit
+    const suggestions = {
+        '#10 can': ['C', 'oz'],
+        'can': ['can', 'C', 'oz'],
+        'lb': ['lb', 'oz', 'C'],
+        'gal': ['C', 'oz.', 'T'],
+        'ea': ['ea'],
+        'C': ['C', 'T', 't']
+    };
+
+    const recipeSelect = document.getElementById('recipe_unit');
+    if (!recipeSelect.value && suggestions[this.value]) {
+        recipeSelect.value = suggestions[this.value][0];
+        updateHelperText();
+    }
+});
+
+document.getElementById('recipe_unit').addEventListener('change', updateHelperText);
+
+// Update cost preview on any input change
+['purchase_price', 'units_per_purchase', 'recipe_units_per_inventory', 'yield_percent'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateCostPreview);
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateHelperText();
+    updateCostPreview();
+});
+</script>
+{% endblock %}

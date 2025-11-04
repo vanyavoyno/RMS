@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Inventory Status - RMS{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Sticky Category Navigation */
+    .category-nav-sticky {
+        background: white;
+        border: 2px solid black;
+        padding: 12px 0;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+
+    .category-nav-sticky.stuck {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .category-jump {
+        white-space: nowrap;
+        font-size: 0.9rem;
+        padding: 0.4rem 0.8rem;
+        transition: all 0.2s;
+    }
+
+    .category-jump:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    /* Mobile Optimizations */
+    @media (max-width: 768px) {
+        #quickSearch {
+            font-size: 16px; /* Prevent zoom on iOS */
+        }
+
+        .category-jump {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.6rem;
+        }
+
+        #backToTop {
+            width: 50px;
+            height: 50px;
+            bottom: 20px;
+            right: 15px;
+        }
+
+        .category-nav-sticky {
+            padding: 8px 0;
+        }
+    }
+
+    /* Search box focus state */
+    #quickSearch:focus {
+        border-color: #000;
+        box-shadow: 0 0 0 0.2rem rgba(0,0,0,0.25);
+    }
+
+    /* Scroll offset for anchors */
+    .category-section {
+        scroll-margin-top: 130px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Quick Search & Navigation -->
+<div class="row mb-3">
+    <div class="col-lg-8">
+        <h2><i class="bi bi-box-seam"></i> Bulk Inventory Status</h2>
+        <p class="text-muted">Monthly/bi-weekly physical count - items tracked in bulk units</p>
+    </div>
+    <div class="col-lg-4">
+        <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" id="quickSearch" class="form-control" placeholder="Quick search ingredients..." autocomplete="off">
+            <button class="btn btn-outline-secondary" type="button" id="clearSearch" style="display: none;">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <small class="text-muted" id="searchResults"></small>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        {% if below_par_count > 0 %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>{{ below_par_count }} ingredients below par level</strong> - consider ordering soon
+        </div>
+        {% else %}
+        <div class="alert alert-success">
+            <i class="bi bi-check-circle"></i>
+            <strong>All ingredients above par level</strong> - inventory is healthy
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Category Quick Nav (Sticky) -->
+<div class="category-nav-sticky" id="categoryNav">
+    <div class="container">
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <strong class="me-2">Jump to:</strong>
+            {% for category in categories %}
+            <a href="#cat-{{ loop.index }}" class="btn btn-sm btn-outline-dark category-jump">
+                {{ category.category }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% for category in categories %}
+<div class="card mb-4 category-section" id="cat-{{ loop.index }}" data-category="{{ category.category }}">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-folder"></i> {{ category.category }}
+            <small class="text-muted ms-2 category-item-count">({{ category['items']|length }} items)</small>
+        </h5>
+        {% if category.below_par > 0 %}
+        <span class="badge bg-warning">{{ category.below_par }} items below par</span>
+        {% else %}
+        <span class="badge bg-success">All OK</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Ingredient</th>
+                        <th>On Hand</th>
+                        <th>Par Level</th>
+                        <th>Need to Order</th>
+                        <th>Unit</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in category['items'] %}
+                    <tr class="{{ 'table-danger' if item.status == 'critical' else 'table-warning' if item.status == 'low' else '' }}" data-ingredient="{{ item.name }}">
+                        <td>
+                            <strong>{{ item.name }}</strong>
+                            {% if not item.is_used %}
+                            <span class="red-dot-blink" style="display: inline-block; width: 10px; height: 10px; background-color: #dc3545; border-radius: 50%; margin-left: 6px; vertical-align: middle;" title="Not used in any recipe or menu plate"></span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="onhand-value">{{ item.on_hand }}</span>
+                        </td>
+                        <td>{{ item.par }}</td>
+                        <td>
+                            <span class="need-value">
+                            {% if item.need > 0 %}
+                            <strong class="text-danger">{{ item.need|int }}</strong>
+                            {% else %}
+                            <span class="text-success">—</span>
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td><span class="badge bg-secondary">{{ item.bulk_unit }}</span></td>
+                        <td>
+                            <span class="status-badge">
+                            {% if item.status == 'ok' %}
+                            <span class="badge bg-success">OK</span>
+                            {% elif item.status == 'low' %}
+                            <span class="badge bg-warning">Low</span>
+                            {% else %}
+                            <span class="badge bg-danger">Critical</span>
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-secondary inv-decrease" data-ingredient="{{ item.name }}" title="Decrease">
+                                    <i class="bi bi-dash-circle"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary inv-increase" data-ingredient="{{ item.name }}" title="Increase">
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary inv-reset" data-ingredient="{{ item.name }}" title="Reset to 0">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                                <a href="/ingredients/bulk#ingredient-{{ item.id }}" class="btn btn-outline-dark btn-sm" title="Edit ingredient details">
+                                    <i class="bi bi-pencil-square"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<div class="mt-4">
+    <a href="/" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+    <a href="/ingredients/bulk" class="btn btn-primary">
+        <i class="bi bi-pencil"></i> Update Inventory
+    </a>
+    <button class="btn btn-outline-primary" onclick="window.print()">
+        <i class="bi bi-printer"></i> Print Count Sheet
+    </button>
+</div>
+
+<!-- Back to Top Button (Mobile-Friendly) -->
+<button id="backToTop" class="btn btn-dark btn-lg" style="display: none; position: fixed; bottom: 80px; right: 20px; z-index: 1000; border-radius: 50%; width: 60px; height: 60px;">
+    <i class="bi bi-arrow-up" style="font-size: 1.5rem;"></i>
+</button>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Quick Search Functionality
+    const searchInput = document.getElementById('quickSearch');
+    const clearBtn = document.getElementById('clearSearch');
+    const searchResults = document.getElementById('searchResults');
+    const allRows = document.querySelectorAll('tbody tr');
+    const categorySections = document.querySelectorAll('.category-section');
+
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+
+        if (query.length === 0) {
+            // Show all rows and categories
+            allRows.forEach(row => row.style.display = '');
+            categorySections.forEach(section => section.style.display = '');
+            clearBtn.style.display = 'none';
+            searchResults.textContent = '';
+            updateCategoryItemCounts();
+            return;
+        }
+
+        clearBtn.style.display = 'inline-block';
+        let visibleCount = 0;
+
+        // Filter rows
+        allRows.forEach(row => {
+            const ingredientName = row.dataset.ingredient.toLowerCase();
+            if (ingredientName.includes(query)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Hide empty categories
+        categorySections.forEach(section => {
+            const visibleRowsInCategory = section.querySelectorAll('tbody tr[style=""]').length;
+            if (visibleRowsInCategory === 0) {
+                section.style.display = 'none';
+            } else {
+                section.style.display = '';
+            }
+        });
+
+        // Update search results count
+        searchResults.textContent = `${visibleCount} item${visibleCount !== 1 ? 's' : ''} found`;
+        updateCategoryItemCounts();
+    });
+
+    clearBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        searchInput.dispatchEvent(new Event('input'));
+        searchInput.focus();
+    });
+
+    // Update category item counts based on visible rows
+    function updateCategoryItemCounts() {
+        categorySections.forEach(section => {
+            const visibleRows = section.querySelectorAll('tbody tr[style=""]').length;
+            const totalRows = section.querySelectorAll('tbody tr').length;
+            const countElement = section.querySelector('.category-item-count');
+            if (countElement) {
+                countElement.textContent = `(${visibleRows} of ${totalRows} items)`;
+            }
+        });
+    }
+
+    // Sticky Category Navigation
+    const categoryNav = document.getElementById('categoryNav');
+    const navOffset = categoryNav.offsetTop;
+
+    window.addEventListener('scroll', function() {
+        if (window.pageYOffset >= navOffset - 10) {
+            categoryNav.classList.add('stuck');
+        } else {
+            categoryNav.classList.remove('stuck');
+        }
+
+        // Show/hide back to top button
+        const backToTop = document.getElementById('backToTop');
+        if (window.pageYOffset > 300) {
+            backToTop.style.display = 'block';
+        } else {
+            backToTop.style.display = 'none';
+        }
+    });
+
+    // Smooth scroll for category jumps
+    document.querySelectorAll('.category-jump').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href');
+            const target = document.querySelector(targetId);
+            const offset = 120; // Account for sticky nav
+            const targetPosition = target.offsetTop - offset;
+
+            window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+            });
+        });
+    });
+
+    // Back to top button
+    document.getElementById('backToTop').addEventListener('click', function() {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+
+    // Handle minus button (decrement)
+    document.querySelectorAll('.inv-decrease').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const ingredientName = this.dataset.ingredient;
+            const row = this.closest('tr');
+            const onhandSpan = row.querySelector('.onhand-value');
+            const currentValue = parseFloat(onhandSpan.textContent);
+            if (currentValue > 0) {
+                updateIngredientOnHand(ingredientName, currentValue - 1, row);
+            }
+        });
+    });
+
+    // Handle plus button (increment)
+    document.querySelectorAll('.inv-increase').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const ingredientName = this.dataset.ingredient;
+            const row = this.closest('tr');
+            const onhandSpan = row.querySelector('.onhand-value');
+            const currentValue = parseFloat(onhandSpan.textContent);
+            updateIngredientOnHand(ingredientName, currentValue + 1, row);
+        });
+    });
+
+    // Handle reset button
+    document.querySelectorAll('.inv-reset').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const ingredientName = this.dataset.ingredient;
+            const row = this.closest('tr');
+            updateIngredientOnHand(ingredientName, 0, row);
+        });
+    });
+
+    function updateCategoryBadge(row) {
+        // Find the card that contains this row
+        const card = row.closest('.card');
+        const tbody = row.closest('tbody');
+        const categoryBadge = card.querySelector('.card-header .badge');
+
+        // Count items below par in this category
+        let belowParCount = 0;
+        tbody.querySelectorAll('tr').forEach(tr => {
+            const status = tr.querySelector('.status-badge .badge');
+            if (status && !status.classList.contains('bg-success')) {
+                belowParCount++;
+            }
+        });
+
+        // Update the category badge
+        if (belowParCount > 0) {
+            categoryBadge.className = 'badge bg-warning';
+            categoryBadge.textContent = belowParCount + (belowParCount === 1 ? ' item below par' : ' items below par');
+        } else {
+            categoryBadge.className = 'badge bg-success';
+            categoryBadge.textContent = 'All OK';
+        }
+
+        // Update global alert
+        updateGlobalAlert();
+    }
+
+    function updateGlobalAlert() {
+        // Count all items below par across all categories
+        let totalBelowPar = 0;
+        document.querySelectorAll('.status-badge .badge').forEach(badge => {
+            if (!badge.classList.contains('bg-success')) {
+                totalBelowPar++;
+            }
+        });
+
+        // Find and update the alert
+        const alertDiv = document.querySelector('.alert');
+        if (totalBelowPar > 0) {
+            alertDiv.className = 'alert alert-warning';
+            alertDiv.innerHTML = `
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>${totalBelowPar} ingredients below par level</strong> - consider ordering soon
+            `;
+        } else {
+            alertDiv.className = 'alert alert-success';
+            alertDiv.innerHTML = `
+                <i class="bi bi-check-circle"></i>
+                <strong>All ingredients above par level</strong> - inventory is healthy
+            `;
+        }
+    }
+
+    function updateIngredientOnHand(ingredientName, newValue, row) {
+        fetch(`/api/ingredient/${encodeURIComponent(ingredientName)}/update_onhand`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ on_hand: newValue })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the displayed values
+                row.querySelector('.onhand-value').textContent = data.on_hand;
+
+                // Update need to order
+                const needSpan = row.querySelector('.need-value');
+                if (data.need > 0) {
+                    needSpan.innerHTML = `<strong class="text-danger">${Math.round(data.need)}</strong>`;
+                } else {
+                    needSpan.innerHTML = '<span class="text-success">—</span>';
+                }
+
+                // Update status badge and row color
+                const statusBadge = row.querySelector('.status-badge');
+                const onHand = data.on_hand;
+                const par = data.par_level;
+
+                row.classList.remove('table-danger', 'table-warning');
+
+                if (onHand >= par) {
+                    statusBadge.innerHTML = '<span class="badge bg-success">OK</span>';
+                } else if (onHand >= par * 0.5) {
+                    statusBadge.innerHTML = '<span class="badge bg-warning">Low</span>';
+                    row.classList.add('table-warning');
+                } else {
+                    statusBadge.innerHTML = '<span class="badge bg-danger">Critical</span>';
+                    row.classList.add('table-danger');
+                }
+
+                // Update category badge
+                updateCategoryBadge(row);
+
+                // Brief flash to show update
+                row.style.transition = 'background-color 0.3s';
+                const originalBg = row.style.backgroundColor;
+                row.style.backgroundColor = '#d4edda';
+                setTimeout(() => {
+                    row.style.backgroundColor = originalBg;
+                }, 300);
+            } else {
+                alert('Error updating on hand: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to update on hand');
+        });
+    }
+});
+</script>
+{% endblock %}

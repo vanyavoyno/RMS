@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Recipes - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="display-6 mb-0">
+                <i class="bi bi-book"></i> Recipes
+            </h1>
+            <a href="{{ url_for('add_recipe') }}" class="btn btn-primary">
+                <i class="bi bi-journal-plus"></i> Add New Recipe
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Search and Filters -->
+    <div class="col-lg-3 mb-4">
+        <div class="sidebar">
+            <h5><i class="bi bi-funnel"></i> Filters</h5>
+
+            <div class="mb-3">
+                <label for="searchInput" class="form-label">Search Recipes</label>
+                <input type="text" class="form-control" id="searchInput"
+                       placeholder="Enter recipe name..." onkeyup="filterRecipes()">
+            </div>
+
+            <div class="mb-3">
+                <label for="servingsFilter" class="form-label">Servings</label>
+                <select class="form-select" id="servingsFilter" onchange="filterRecipes()">
+                    <option value="">Any</option>
+                    <option value="1-2">1-2 servings</option>
+                    <option value="3-4">3-4 servings</option>
+                    <option value="5-8">5-8 servings</option>
+                    <option value="9+">9+ servings</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                    <i class="bi bi-arrow-clockwise"></i> Clear Filters
+                </button>
+            </div>
+
+            <div class="border-top pt-3">
+                <h6 class="text-muted">Recipe Stats</h6>
+                <div class="small text-muted">
+                    <div class="d-flex justify-content-between">
+                        <span>Total Recipes:</span>
+                        <strong>{{ recipes|length }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Avg Servings:</span>
+                        <strong>{{ (recipes | sum(attribute='servings') / recipes|length) | round(1) if recipes else 0 }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recipe Cards -->
+    <div class="col-lg-9">
+        {% if recipes %}
+            <div class="recipe-grid" id="recipeGrid">
+                {% for recipe in recipes %}
+                <div class="card recipe-card"
+                     data-name="{{ recipe.name.lower() }}"
+                     data-servings="{{ recipe.servings }}">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">{{ recipe.name }}</h6>
+                        <span class="ingredient-badge">{{ recipe.servings }} servings</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted small mb-3">
+                            {{ recipe.description[:100] + '...' if recipe.description|length > 100 else recipe.description or 'No description available' }}
+                        </p>
+
+                        <div class="row text-center mb-3">
+                            {% if recipe.prep_time > 0 %}
+                            <div class="col">
+                                <small class="text-muted d-block">Prep Time</small>
+                                <strong>{{ recipe.prep_time }}m</strong>
+                            </div>
+                            {% endif %}
+                            {% if recipe.cook_time > 0 %}
+                            <div class="col">
+                                <small class="text-muted d-block">Cook Time</small>
+                                <strong>{{ recipe.cook_time }}m</strong>
+                            </div>
+                            {% endif %}
+                            <div class="col">
+                                <small class="text-muted d-block">Q-Factor</small>
+                                <strong>{{ (recipe.q_factor * 100) | round(1) }}%</strong>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('recipe_detail', recipe_name=recipe.name) }}"
+                               class="btn btn-primary btn-sm">
+                                <i class="bi bi-eye"></i> View Recipe
+                            </a>
+
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        onclick="quickCostCalculation('{{ recipe.name }}')">
+                                    <i class="bi bi-calculator"></i> Quick Cost
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        onclick="showScaleModal('{{ recipe.name }}', {{ recipe.servings }})">
+                                    <i class="bi bi-arrows-fullscreen"></i> Scale
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- No Results Message -->
+            <div id="noResults" class="text-center py-5 d-none">
+                <i class="bi bi-search display-1 text-muted"></i>
+                <h5 class="text-muted mt-3">No recipes found</h5>
+                <p class="text-muted">Try adjusting your search criteria</p>
+            </div>
+
+        {% else %}
+            <div class="text-center py-5">
+                <i class="bi bi-journal-x display-1 text-muted"></i>
+                <h5 class="text-muted mt-3">No recipes yet</h5>
+                <p class="text-muted">Start building your recipe collection!</p>
+                <a href="{{ url_for('add_recipe') }}" class="btn btn-primary">
+                    <i class="bi bi-journal-plus"></i> Add Your First Recipe
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Scale Recipe Modal -->
+<div class="modal fade" id="scaleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-arrows-fullscreen"></i> Scale Recipe
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Scale <strong id="scaleRecipeName"></strong> from <strong id="originalServings"></strong> servings to:</p>
+                <div class="mb-3">
+                    <label for="newServings" class="form-label">New Servings</label>
+                    <input type="number" class="form-control" id="newServings" min="1" max="100" value="4">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="scaleRecipe()">Scale Recipe</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Cost Modal -->
+<div class="modal fade" id="quickCostModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-calculator"></i> Recipe Cost
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="costLoading" class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Calculating cost...</p>
+                </div>
+                <div id="costDetails" class="d-none">
+                    <h6 id="costRecipeName"></h6>
+                    <div class="cost-highlight mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Total Cost:</span>
+                            <strong id="modalTotalCost">$0.00</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Cost per Serving:</span>
+                            <strong id="modalCostPerServing">$0.00</strong>
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i>
+                        Includes Q-factor for overhead costs
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="viewFullDetails" onclick="viewFullRecipe()">
+                    View Full Details
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentRecipeName = '';
+
+function filterRecipes() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const servingsFilter = document.getElementById('servingsFilter').value;
+    const cards = document.querySelectorAll('.recipe-card');
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+        const name = card.dataset.name;
+        const servings = parseInt(card.dataset.servings);
+
+        let showCard = true;
+
+        // Search filter
+        if (searchTerm && !name.includes(searchTerm)) {
+            showCard = false;
+        }
+
+        // Servings filter
+        if (servingsFilter) {
+            const [min, max] = servingsFilter.split('-').map(x => x === '+' ? 999 : parseInt(x));
+            if (servingsFilter === '9+') {
+                if (servings < 9) showCard = false;
+            } else {
+                if (servings < min || servings > (max || min)) showCard = false;
+            }
+        }
+
+        card.style.display = showCard ? 'block' : 'none';
+        if (showCard) visibleCount++;
+    });
+
+    document.getElementById('noResults').classList.toggle('d-none', visibleCount > 0);
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('servingsFilter').value = '';
+    filterRecipes();
+}
+
+function quickCostCalculation(recipeName) {
+    currentRecipeName = recipeName;
+    document.getElementById('costRecipeName').textContent = recipeName;
+    document.getElementById('costLoading').classList.remove('d-none');
+    document.getElementById('costDetails').classList.add('d-none');
+
+    const modal = new bootstrap.Modal(document.getElementById('quickCostModal'));
+    modal.show();
+
+    fetch(`/api/recipe_cost/${encodeURIComponent(recipeName)}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('costLoading').classList.add('d-none');
+
+            if (data.error) {
+                document.getElementById('costDetails').innerHTML =
+                    `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ${data.error}</div>`;
+            } else {
+                document.getElementById('modalTotalCost').textContent = '$' + data.total_cost.toFixed(2);
+                document.getElementById('modalCostPerServing').textContent = '$' + data.cost_per_serving.toFixed(2);
+            }
+
+            document.getElementById('costDetails').classList.remove('d-none');
+        })
+        .catch(error => {
+            document.getElementById('costLoading').classList.add('d-none');
+            document.getElementById('costDetails').innerHTML =
+                `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${error}</div>`;
+            document.getElementById('costDetails').classList.remove('d-none');
+        });
+}
+
+function showScaleModal(recipeName, servings) {
+    currentRecipeName = recipeName;
+    document.getElementById('scaleRecipeName').textContent = recipeName;
+    document.getElementById('originalServings').textContent = servings;
+    document.getElementById('newServings').value = servings;
+
+    const modal = new bootstrap.Modal(document.getElementById('scaleModal'));
+    modal.show();
+}
+
+function scaleRecipe() {
+    const newServings = document.getElementById('newServings').value;
+    if (!newServings || newServings < 1) {
+        alert('Please enter a valid number of servings');
+        return;
+    }
+
+    window.location.href = `/scale_recipe/${encodeURIComponent(currentRecipeName)}?servings=${newServings}`;
+}
+
+function viewFullRecipe() {
+    window.location.href = `/recipe/${encodeURIComponent(currentRecipeName)}`;
+}
+</script>
+{% endblock %}

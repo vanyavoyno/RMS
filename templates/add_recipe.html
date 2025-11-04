@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Add Recipe - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-journal-plus"></i> Add New Recipe
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">Recipe Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   placeholder="e.g., Chocolate Chip Cookies">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="servings" class="form-label">Number of Servings *</label>
+                            <input type="number" class="form-control" id="servings" name="servings"
+                                   min="1" max="100" value="4" required>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="whole_unit" name="whole_unit">
+                                <label class="form-check-label" for="whole_unit">
+                                    <strong>Whole Unit Recipe</strong>
+                                    <small class="text-muted d-block">Check this for recipes that come in discrete units (pies, cakes, casseroles, etc.) that can't be smoothly scaled</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"
+                                  placeholder="Brief description of the recipe..."></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="prep_time" class="form-label">Prep Time (minutes)</label>
+                            <input type="number" class="form-control" id="prep_time" name="prep_time"
+                                   min="0" max="1440" value="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="cook_time" class="form-label">Cook Time (minutes)</label>
+                            <input type="number" class="form-control" id="cook_time" name="cook_time"
+                                   min="0" max="1440" value="0">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="q_factor" class="form-label">Q-Factor (overhead %)</label>
+                            <input type="number" class="form-control" id="q_factor" name="q_factor"
+                                   min="0" max="1" step="0.01" value="0.04"
+                                   title="Overhead factor for cost calculations (0.04 = 4%)">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="instructions" class="form-label">Cooking Instructions</label>
+                        <textarea class="form-control" id="instructions" name="instructions" rows="8"
+                                  placeholder="Enter step-by-step cooking instructions...&#10;&#10;For example:&#10;1. Preheat oven to 350°F&#10;2. Mix dry ingredients in a large bowl&#10;3. Add wet ingredients and stir until combined&#10;4. Bake for 25-30 minutes"></textarea>
+                        <div class="form-text">Use numbered steps for best readability. Each step on a new line.</div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Next Step:</strong> After creating the recipe, you'll be able to add ingredients to it.
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('recipes') }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Recipes
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-check"></i> Create Recipe
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const name = document.getElementById('name').value.trim();
+    const servings = parseInt(document.getElementById('servings').value);
+
+    let errors = [];
+
+    if (!name) {
+        errors.push('Recipe name is required');
+    } else if (name.length < 2) {
+        errors.push('Recipe name must be at least 2 characters');
+    }
+
+    if (!servings || servings < 1 || servings > 100) {
+        errors.push('Servings must be between 1 and 100');
+    }
+
+    if (errors.length > 0) {
+        e.preventDefault();
+        alert('Please fix the following errors:\n• ' + errors.join('\n• '));
+        return false;
+    }
+
+    // Show loading state
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating...';
+    submitBtn.disabled = true;
+});
+
+// Real-time validation feedback
+document.getElementById('name').addEventListener('input', function() {
+    const name = this.value.trim();
+    if (name.length > 0 && name.length < 2) {
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-invalid');
+    }
+});
+
+document.getElementById('servings').addEventListener('input', function() {
+    const servings = parseInt(this.value);
+    if (this.value && (servings < 1 || servings > 100)) {
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-invalid');
+    }
+});
+</script>
+{% endblock %}

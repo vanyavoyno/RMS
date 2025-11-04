@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Recipe - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-pencil-square"></i> Edit Recipe: {{ recipe.name }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="name" class="form-label">Recipe Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   value="{{ recipe.name }}" placeholder="e.g., Chocolate Chip Cookies">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="servings" class="form-label">Number of Servings *</label>
+                            <input type="number" class="form-control" id="servings" name="servings"
+                                   min="1" max="100" value="{{ recipe.servings }}" required>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="whole_unit" name="whole_unit"
+                                       {% if recipe.whole_unit %}checked{% endif %}>
+                                <label class="form-check-label" for="whole_unit">
+                                    <strong>Whole Unit Recipe</strong>
+                                    <small class="text-muted d-block">Check this for recipes that come in discrete units (pies, cakes, casseroles, etc.) that can't be smoothly scaled</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"
+                                  placeholder="Brief description of the recipe...">{{ recipe.description }}</textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="prep_time" class="form-label">Prep Time (minutes)</label>
+                            <input type="number" class="form-control" id="prep_time" name="prep_time"
+                                   min="0" max="1440" value="{{ recipe.prep_time }}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="cook_time" class="form-label">Cook Time (minutes)</label>
+                            <input type="number" class="form-control" id="cook_time" name="cook_time"
+                                   min="0" max="1440" value="{{ recipe.cook_time }}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="q_factor" class="form-label">Q-Factor (overhead %)</label>
+                            <input type="number" class="form-control" id="q_factor" name="q_factor"
+                                   min="0" max="1" step="0.01" value="{{ recipe.q_factor }}"
+                                   title="Overhead factor for cost calculations (0.04 = 4%)">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="instructions" class="form-label">Cooking Instructions</label>
+                        <textarea class="form-control" id="instructions" name="instructions" rows="12"
+                                  placeholder="Enter step-by-step cooking instructions...&#10;&#10;For example:&#10;1. Preheat oven to 350°F&#10;2. Mix dry ingredients in a large bowl&#10;3. Add wet ingredients and stir until combined&#10;4. Bake for 25-30 minutes">{{ recipe.instructions }}</textarea>
+                        <div class="form-text">
+                            Use numbered steps for best readability. Each step on a new line.
+                            <strong>Tip:</strong> You can add/edit/delete individual steps here.
+                        </div>
+                    </div>
+
+                    {% if recipe.instructions %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Current Instructions Preview:</strong> This recipe currently has cooking instructions.
+                        You can modify them above to add, edit, or delete steps.
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>No Instructions:</strong> This recipe doesn't have cooking instructions yet.
+                        Add them above to help with cooking!
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('recipe_detail', recipe_name=recipe.name) }}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-check"></i> Update Recipe
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recipe Ingredients Management -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-bag"></i> Recipe Ingredients
+                </h4>
+            </div>
+            <div class="card-body">
+                <!-- Current Ingredients -->
+                <div id="current-ingredients">
+                    {% if recipe_ingredients %}
+                    <h6 class="mb-3">Current Ingredients:</h6>
+                    {% for ingredient in recipe_ingredients %}
+                    <div class="ingredient-item border rounded p-3 mb-2" data-ingredient="{{ ingredient.ingredient_name }}">
+                        <div class="row align-items-center">
+                            <div class="col-md-3">
+                                <strong>{{ ingredient.ingredient_name }}</strong>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="input-group input-group-sm">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="adjustQuantity('{{ ingredient.ingredient_name }}', -0.125)">-</button>
+                                    <input type="number" class="form-control text-center quantity-input"
+                                           value="{{ ingredient.quantity }}"
+                                           step="0.125" min="0" max="1000"
+                                           data-ingredient="{{ ingredient.ingredient_name }}"
+                                           onchange="updateIngredientQuantity('{{ ingredient.ingredient_name }}', this.value)">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="adjustQuantity('{{ ingredient.ingredient_name }}', 0.125)">+</button>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select form-select-sm unit-select"
+                                        data-ingredient="{{ ingredient.ingredient_name }}"
+                                        onchange="updateIngredientUnit('{{ ingredient.ingredient_name }}', this.value)">
+                                    <option value="pinch" {% if ingredient.unit == 'pinch' %}selected{% endif %}>pinch</option>
+                                    <option value="dash" {% if ingredient.unit == 'dash' %}selected{% endif %}>dash</option>
+                                    <option value="t" {% if ingredient.unit == 't' %}selected{% endif %}>tsp</option>
+                                    <option value="T" {% if ingredient.unit == 'T' %}selected{% endif %}>tbsp</option>
+                                    <option value="fl.oz." {% if ingredient.unit == 'fl.oz.' %}selected{% endif %}>fl oz</option>
+                                    <option value="C" {% if ingredient.unit == 'C' %}selected{% endif %}>cup</option>
+                                    <option value="pt" {% if ingredient.unit == 'pt' %}selected{% endif %}>pint</option>
+                                    <option value="qt" {% if ingredient.unit == 'qt' %}selected{% endif %}>quart</option>
+                                    <option value="gal" {% if ingredient.unit == 'gal' %}selected{% endif %}>gallon</option>
+                                    <option value="oz" {% if ingredient.unit == 'oz' %}selected{% endif %}>oz</option>
+                                    <option value="lb" {% if ingredient.unit == 'lb' %}selected{% endif %}>lb</option>
+                                    <option value="g" {% if ingredient.unit == 'g' %}selected{% endif %}>g</option>
+                                    <option value="Kg" {% if ingredient.unit == 'Kg' %}selected{% endif %}>kg</option>
+                                    <option value="ea" {% if ingredient.unit == 'ea' %}selected{% endif %}>each</option>
+                                    <option value="doz" {% if ingredient.unit == 'doz' %}selected{% endif %}>dozen</option>
+                                    <option value="clove" {% if ingredient.unit == 'clove' %}selected{% endif %}>clove</option>
+                                    <option value="bunch" {% if ingredient.unit == 'bunch' %}selected{% endif %}>bunch</option>
+                                    <option value="slice" {% if ingredient.unit == 'slice' %}selected{% endif %}>slice</option>
+                                    <option value="loaf" {% if ingredient.unit == 'loaf' %}selected{% endif %}>loaf</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <button class="btn btn-sm btn-outline-danger" onclick="removeIngredient('{{ ingredient.ingredient_name }}')">
+                                    <i class="bi bi-trash"></i> Remove
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        This recipe doesn't have any ingredients yet. Add some below!
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Add New Ingredient -->
+                <hr class="my-4">
+                <h6 class="mb-3">Add New Ingredient:</h6>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Ingredient</label>
+                        <select class="form-select" id="new-ingredient-select">
+                            <option value="">Choose ingredient...</option>
+                            {% for ingredient in all_ingredients %}
+                            <option value="{{ ingredient.name }}">{{ ingredient.name }} ({{ ingredient.category }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Quantity</label>
+                        <div class="input-group">
+                            <button class="btn btn-outline-secondary" type="button" onclick="adjustNewQuantity(-0.125)">-</button>
+                            <input type="number" class="form-control text-center" id="new-quantity"
+                                   value="1" step="0.125" min="0" max="1000">
+                            <button class="btn btn-outline-secondary" type="button" onclick="adjustNewQuantity(0.125)">+</button>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Unit</label>
+                        <select class="form-select" id="new-unit-select">
+                            <option value="pinch">pinch</option>
+                            <option value="dash">dash</option>
+                            <option value="t">tsp</option>
+                            <option value="T">tbsp</option>
+                            <option value="fl.oz.">fl oz</option>
+                            <option value="C" selected>cup</option>
+                            <option value="pt">pint</option>
+                            <option value="qt">quart</option>
+                            <option value="gal">gallon</option>
+                            <option value="oz">oz</option>
+                            <option value="lb">lb</option>
+                            <option value="g">g</option>
+                            <option value="Kg">kg</option>
+                            <option value="ea">each</option>
+                            <option value="doz">dozen</option>
+                            <option value="clove">clove</option>
+                            <option value="bunch">bunch</option>
+                            <option value="slice">slice</option>
+                            <option value="loaf">loaf</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3">
+                        <label class="form-label">&nbsp;</label>
+                        <button class="btn btn-success w-100" onclick="addIngredient()">
+                            <i class="bi bi-plus"></i> Add
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Quantity Buttons -->
+                <div class="mb-3">
+                    <label class="form-label">Quick Quantities:</label>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(0.125)">1/8</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(0.25)">1/4</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(0.333)">1/3</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(0.5)">1/2</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(0.667)">2/3</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(0.75)">3/4</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(1)">1</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(2)">2</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(3)">3</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="setNewQuantity(4)">4</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const name = document.getElementById('name').value.trim();
+    const servings = parseInt(document.getElementById('servings').value);
+
+    let errors = [];
+
+    if (!name) {
+        errors.push('Recipe name is required');
+    } else if (name.length < 2) {
+        errors.push('Recipe name must be at least 2 characters');
+    }
+
+    if (!servings || servings < 1 || servings > 100) {
+        errors.push('Servings must be between 1 and 100');
+    }
+
+    if (errors.length > 0) {
+        e.preventDefault();
+        alert('Please fix the following errors:\n• ' + errors.join('\n• '));
+        return false;
+    }
+
+    // Show loading state
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Updating...';
+    submitBtn.disabled = true;
+});
+
+// Real-time validation feedback
+document.getElementById('name').addEventListener('input', function() {
+    const name = this.value.trim();
+    if (name.length > 0 && name.length < 2) {
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-invalid');
+    }
+});
+
+document.getElementById('servings').addEventListener('input', function() {
+    const servings = parseInt(this.value);
+    if (this.value && (servings < 1 || servings > 100)) {
+        this.classList.add('is-invalid');
+    } else {
+        this.classList.remove('is-invalid');
+    }
+});
+
+// Auto-resize textarea for instructions
+document.getElementById('instructions').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.max(this.scrollHeight, 200) + 'px';
+});
+
+// Initial resize
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('instructions');
+    textarea.style.height = Math.max(textarea.scrollHeight, 200) + 'px';
+});
+
+// Ingredient Management Functions
+function adjustQuantity(ingredientName, adjustment) {
+    const input = document.querySelector(`input[data-ingredient="${ingredientName}"]`);
+    const currentValue = parseFloat(input.value) || 0;
+    const newValue = Math.max(0, currentValue + adjustment);
+    input.value = formatQuantity(newValue);
+    updateIngredientQuantity(ingredientName, newValue);
+}
+
+function adjustNewQuantity(adjustment) {
+    const input = document.getElementById('new-quantity');
+    const currentValue = parseFloat(input.value) || 0;
+    const newValue = Math.max(0, currentValue + adjustment);
+    input.value = formatQuantity(newValue);
+}
+
+function setNewQuantity(value) {
+    document.getElementById('new-quantity').value = formatQuantity(value);
+}
+
+function formatQuantity(value) {
+    // Format to show common fractions nicely
+    if (value === 0.125) return '1/8';
+    if (value === 0.25) return '1/4';
+    if (value === 0.333 || value === 0.33333333) return '1/3';
+    if (value === 0.5) return '1/2';
+    if (value === 0.667 || value === 0.66666667) return '2/3';
+    if (value === 0.75) return '3/4';
+    if (value === Math.floor(value)) return value.toString();
+    return value.toFixed(3).replace(/\.?0+$/, '');
+}
+
+function updateIngredientQuantity(ingredientName, quantity) {
+    fetch(`/api/update_recipe_ingredient`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            recipe_name: '{{ recipe.name }}',
+            ingredient_name: ingredientName,
+            quantity: parseFloat(quantity),
+            action: 'update_quantity'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            alert('Error updating quantity: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating ingredient quantity');
+    });
+}
+
+function updateIngredientUnit(ingredientName, unit) {
+    fetch(`/api/update_recipe_ingredient`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            recipe_name: '{{ recipe.name }}',
+            ingredient_name: ingredientName,
+            unit: unit,
+            action: 'update_unit'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            alert('Error updating unit: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating ingredient unit');
+    });
+}
+
+function addIngredient() {
+    const ingredientSelect = document.getElementById('new-ingredient-select');
+    const quantityInput = document.getElementById('new-quantity');
+    const unitSelect = document.getElementById('new-unit-select');
+
+    const ingredientName = ingredientSelect.value;
+    const quantity = parseFloat(quantityInput.value);
+    const unit = unitSelect.value;
+
+    if (!ingredientName) {
+        alert('Please select an ingredient');
+        return;
+    }
+
+    if (!quantity || quantity <= 0) {
+        alert('Please enter a valid quantity');
+        return;
+    }
+
+    fetch(`/api/update_recipe_ingredient`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            recipe_name: '{{ recipe.name }}',
+            ingredient_name: ingredientName,
+            quantity: quantity,
+            unit: unit,
+            action: 'add'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload the page to show the new ingredient
+            window.location.reload();
+        } else {
+            alert('Error adding ingredient: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error adding ingredient');
+    });
+}
+
+function removeIngredient(ingredientName) {
+    if (!confirm(`Are you sure you want to remove ${ingredientName} from this recipe?`)) {
+        return;
+    }
+
+    fetch(`/api/update_recipe_ingredient`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            recipe_name: '{{ recipe.name }}',
+            ingredient_name: ingredientName,
+            action: 'remove'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the ingredient from the UI
+            const ingredientItem = document.querySelector(`[data-ingredient="${ingredientName}"]`);
+            ingredientItem.remove();
+        } else {
+            alert('Error removing ingredient: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error removing ingredient');
+    });
+}
+</script>
+{% endblock %}

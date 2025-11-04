@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Plate Categories - Recipe Management System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="display-6">
+                <i class="bi bi-tags"></i> Manage Plate Categories
+            </h1>
+            <button class="btn btn-primary" onclick="showAddCategoryModal()">
+                <i class="bi bi-plus"></i> Add Category
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-list"></i> Current Categories</h5>
+            </div>
+            <div class="card-body">
+                {% if categories %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Order</th>
+                                <th>Category Name</th>
+                                <th>Plates Count</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categories-table">
+                            {% for category in categories %}
+                            <tr data-category-id="{{ category.id }}">
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        {% if not loop.first %}
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                onclick="moveCategory({{ category.id }}, 'up')"
+                                                title="Move up">
+                                            <i class="bi bi-arrow-up"></i>
+                                        </button>
+                                        {% endif %}
+                                        {% if not loop.last %}
+                                        <button class="btn btn-sm btn-outline-secondary"
+                                                onclick="moveCategory({{ category.id }}, 'down')"
+                                                title="Move down">
+                                            <i class="bi bi-arrow-down"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <strong>{{ category.name }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ category.plate_count }} plates</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary"
+                                                onclick="showEditCategoryModal({{ category.id }}, '{{ category.name }}')">
+                                            <i class="bi bi-pencil"></i> Rename
+                                        </button>
+                                        {% if category.plate_count == 0 %}
+                                        <button class="btn btn-outline-danger"
+                                                onclick="deleteCategory({{ category.id }}, '{{ category.name }}')">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                        {% else %}
+                                        <button class="btn btn-outline-secondary" disabled title="Cannot delete category with plates">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> No categories found. Add your first category above.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-4">
+            <i class="bi bi-lightbulb"></i>
+            <strong>Tips:</strong>
+            <ul class="mb-0 mt-2">
+                <li>Use the arrows to reorder categories - this affects how they appear in menus</li>
+                <li>Rename categories to match your restaurant's style (e.g., "Appetizers" → "Starters")</li>
+                <li>Add custom categories like "Chef's Favourites" or "Family Meals"</li>
+                <li>Categories with plates cannot be deleted - reassign plates first</li>
+            </ul>
+        </div>
+
+        <div class="mt-4">
+            <a href="{{ url_for('plates') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Menu Plates
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Add Category Modal -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_plate_category') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="new_category_name" class="form-label">Category Name *</label>
+                        <input type="text" class="form-control" id="new_category_name"
+                               name="category_name" required
+                               placeholder="e.g., Chef's Favourites, Family Meals">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus"></i> Add Category
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Category Modal -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Rename Category</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('edit_plate_category') }}" id="editCategoryForm">
+                <input type="hidden" name="category_id" id="edit_category_id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_category_name" class="form-label">New Category Name *</label>
+                        <input type="text" class="form-control" id="edit_category_name"
+                               name="new_name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showAddCategoryModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addCategoryModal'));
+    modal.show();
+}
+
+function showEditCategoryModal(categoryId, currentName) {
+    document.getElementById('edit_category_id').value = categoryId;
+    document.getElementById('edit_category_name').value = currentName;
+    const modal = new bootstrap.Modal(document.getElementById('editCategoryModal'));
+    modal.show();
+}
+
+function deleteCategory(categoryId, categoryName) {
+    if (confirm(`Are you sure you want to delete the category "${categoryName}"?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("delete_plate_category") }}';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'category_id';
+        input.value = categoryId;
+
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function moveCategory(categoryId, direction) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("move_plate_category") }}';
+
+    const idInput = document.createElement('input');
+    idInput.type = 'hidden';
+    idInput.name = 'category_id';
+    idInput.value = categoryId;
+
+    const dirInput = document.createElement('input');
+    dirInput.type = 'hidden';
+    dirInput.name = 'direction';
+    dirInput.value = direction;
+
+    form.appendChild(idInput);
+    form.appendChild(dirInput);
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Prep List - RMS{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="bi bi-clipboard-check"></i> Daily Prep List by Station</h2>
+        <p class="text-muted">Track prepared servings and par levels for each station</p>
+    </div>
+</div>
+
+{% for station in stations %}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="bi bi-{{
+                'egg-fried' if station.station == 'Grill' else
+                'cup-straw' if station.station == 'Salad' else
+                'fire' if station.station == 'Fry' else
+                'pizza' if station.station == 'Pizza' else
+                'pot' if station.station == 'Saute' else
+                'cup-hot' if station.station == 'Soup' else
+                'cake2' if station.station == 'Dessert' else
+                'box-seam' if station.station == 'Pantry' else
+                'tools'
+            }}"></i>
+            {{ station.station }} Station
+        </h5>
+        {% if station.total_below_par > 0 %}
+        <span class="badge bg-warning">{{ station.total_below_par }} items below par</span>
+        {% else %}
+        <span class="badge bg-success">All items above par</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Recipe</th>
+                        <th>Prepared</th>
+                        <th>Par Level</th>
+                        <th>Need to Prep</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in station['items'] %}
+                    <tr class="{{ 'table-danger' if item.status == 'critical' else 'table-warning' if item.status == 'low' else '' }}" data-recipe="{{ item.name }}">
+                        <td><strong>{{ item.name }}</strong></td>
+                        <td>
+                            <span class="prepared-value">{{ item.prepared|int }}</span> servings
+                        </td>
+                        <td>{{ item.par|int }} servings</td>
+                        <td>
+                            <span class="need-value">
+                            {% if item.need > 0 %}
+                            <strong class="text-danger">{{ item.need|int }} servings</strong>
+                            {% else %}
+                            <span class="text-success">✓</span>
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge">
+                            {% if item.status == 'ok' %}
+                            <span class="badge bg-success">OK</span>
+                            {% elif item.status == 'low' %}
+                            <span class="badge bg-warning">Low</span>
+                            {% else %}
+                            <span class="badge bg-danger">Critical</span>
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button class="btn btn-outline-secondary prep-decrease" data-recipe="{{ item.name }}" title="Decrease">
+                                    <i class="bi bi-dash-circle"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary prep-increase" data-recipe="{{ item.name }}" title="Increase">
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary prep-reset" data-recipe="{{ item.name }}" title="Reset to 0">
+                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<div class="mt-4">
+    <a href="/" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+    <button class="btn btn-primary" onclick="window.print()">
+        <i class="bi bi-printer"></i> Print Prep List
+    </button>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle minus button (decrement)
+    document.querySelectorAll('.prep-decrease').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const recipeName = this.dataset.recipe;
+            const row = this.closest('tr');
+            const preparedSpan = row.querySelector('.prepared-value');
+            const currentValue = parseInt(preparedSpan.textContent);
+            if (currentValue > 0) {
+                updatePreparedServings(recipeName, currentValue - 1, row);
+            }
+        });
+    });
+
+    // Handle plus button (increment)
+    document.querySelectorAll('.prep-increase').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const recipeName = this.dataset.recipe;
+            const row = this.closest('tr');
+            const preparedSpan = row.querySelector('.prepared-value');
+            const currentValue = parseInt(preparedSpan.textContent);
+            updatePreparedServings(recipeName, currentValue + 1, row);
+        });
+    });
+
+    // Handle reset button
+    document.querySelectorAll('.prep-reset').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const recipeName = this.dataset.recipe;
+            const row = this.closest('tr');
+            updatePreparedServings(recipeName, 0, row);
+        });
+    });
+
+    function updateStationBadge(row, newStatus) {
+        // Find the card that contains this row
+        const card = row.closest('.card');
+        const tbody = row.closest('tbody');
+        const stationBadge = card.querySelector('.card-header .badge');
+
+        // Count items below par in this station
+        let belowParCount = 0;
+        tbody.querySelectorAll('tr').forEach(tr => {
+            const status = tr.querySelector('.status-badge .badge');
+            if (status && !status.classList.contains('bg-success')) {
+                belowParCount++;
+            }
+        });
+
+        // Update the station badge
+        if (belowParCount > 0) {
+            stationBadge.className = 'badge bg-warning';
+            stationBadge.textContent = belowParCount + (belowParCount === 1 ? ' item below par' : ' items below par');
+        } else {
+            stationBadge.className = 'badge bg-success';
+            stationBadge.textContent = 'All items above par';
+        }
+    }
+
+    function updatePreparedServings(recipeName, newValue, row) {
+        fetch(`/api/recipe/${encodeURIComponent(recipeName)}/update_prepared`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prepared_servings: newValue })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the displayed values
+                row.querySelector('.prepared-value').textContent = data.prepared_servings;
+
+                // Update need to prep
+                const needSpan = row.querySelector('.need-value');
+                if (data.need > 0) {
+                    needSpan.innerHTML = `<strong class="text-danger">${data.need} servings</strong>`;
+                } else {
+                    needSpan.innerHTML = '<span class="text-success">✓</span>';
+                }
+
+                // Update status badge and row color
+                const statusBadge = row.querySelector('.status-badge');
+                const prepared = data.prepared_servings;
+                const par = data.par_servings;
+
+                row.classList.remove('table-danger', 'table-warning');
+
+                let newStatus;
+                if (prepared >= par) {
+                    statusBadge.innerHTML = '<span class="badge bg-success">OK</span>';
+                    newStatus = 'ok';
+                } else if (prepared >= par * 0.5) {
+                    statusBadge.innerHTML = '<span class="badge bg-warning">Low</span>';
+                    row.classList.add('table-warning');
+                    newStatus = 'low';
+                } else {
+                    statusBadge.innerHTML = '<span class="badge bg-danger">Critical</span>';
+                    row.classList.add('table-danger');
+                    newStatus = 'critical';
+                }
+
+                // Update station badge
+                updateStationBadge(row, newStatus);
+
+                // Brief flash to show update
+                row.style.transition = 'background-color 0.3s';
+                const originalBg = row.style.backgroundColor;
+                row.style.backgroundColor = '#d4edda';
+                setTimeout(() => {
+                    row.style.backgroundColor = originalBg;
+                }, 300);
+            } else {
+                alert('Error updating prepared servings: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to update prepared servings');
+        });
+    }
+});
+</script>
+{% endblock %}
